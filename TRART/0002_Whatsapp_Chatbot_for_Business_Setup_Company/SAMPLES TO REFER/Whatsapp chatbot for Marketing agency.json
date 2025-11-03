@@ -1,0 +1,1151 @@
+{
+    "nodes": [
+      {
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "has-text-fixed",
+                      "leftValue": "={{ $json.messages[0].text.body }}",
+                      "rightValue": "",
+                      "operator": {
+                        "type": "string",
+                        "operation": "exists"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "Text"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "has-voice-fixed",
+                      "leftValue": "={{ $json.messages[0].audio.sha256 }}",
+                      "rightValue": "voice",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    },
+                    {
+                      "id": "has-audio-fixed",
+                      "leftValue": "={{ $json.messages[0].audio.id }}",
+                      "rightValue": "",
+                      "operator": {
+                        "type": "string",
+                        "operation": "exists"
+                      }
+                    }
+                  ],
+                  "combinator": "or"
+                },
+                "renameOutput": true,
+                "outputKey": "Audio"
+              }
+            ]
+          },
+          "options": {
+            "fallbackOutput": "extra"
+          }
+        },
+        "id": "05ba9d87-5525-4e73-925e-9a5fbe6dfd7b",
+        "name": "Message Router2",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          -4880,
+          512
+        ],
+        "notes": "Fixed: Updated conditions for full WhatsApp webhook structure entry.changes[0].value.messages[0]"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "text-msg-fixed",
+                "name": "messageText",
+                "value": "={{ $json.messages[0].text.body }}",
+                "type": "string"
+              },
+              {
+                "id": "from-number-fixed",
+                "name": "from",
+                "value": "={{ $json.messages[0].from }}",
+                "type": "string"
+              },
+              {
+                "id": "customer-name-fixed",
+                "name": "customerName",
+                "value": "={{ $json.contacts[0].profile.name }}",
+                "type": "string"
+              },
+              {
+                "id": "msg-id-fixed",
+                "name": "messageId",
+                "value": "={{ $json.messages[0].id }}",
+                "type": "string"
+              },
+              {
+                "id": "timestamp-fixed",
+                "name": "timestamp",
+                "value": "={{ $now.toISO() }}",
+                "type": "string"
+              },
+              {
+                "id": "phone-fixed",
+                "name": "phoneNumber",
+                "value": "={{ $json.contacts[0].wa_id }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "7c5ab539-601d-4253-ae7f-99b474188e41",
+        "name": "Extract Text2",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -3760,
+          432
+        ],
+        "notes": "Fixed: Uses full WhatsApp webhook path. Clean JSON - no comments."
+      },
+      {
+        "parameters": {
+          "updates": [
+            "messages"
+          ],
+          "options": {}
+        },
+        "type": "n8n-nodes-base.whatsAppTrigger",
+        "typeVersion": 1,
+        "position": [
+          -5328,
+          528
+        ],
+        "id": "67b96315-3cec-4a38-8636-84aa3b432730",
+        "name": "WhatsApp Trigger2",
+        "webhookId": "789162ca-1693-4d00-8c8e-7c6a5dbe0e85",
+        "credentials": {
+          "whatsAppTriggerApi": {
+            "id": "tQYHH4zApAX5wGMR",
+            "name": "WhatsApp OAuth account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "resource": "media",
+          "operation": "mediaUrlGet",
+          "mediaGetId": "={{ $json.messages[0].audio.id }}"
+        },
+        "type": "n8n-nodes-base.whatsApp",
+        "typeVersion": 1.1,
+        "position": [
+          -4656,
+          624
+        ],
+        "id": "4fff95ee-e7fc-4f28-9063-ac97880154e5",
+        "name": "Download media2",
+        "webhookId": "d41be550-2acd-47b3-97da-72c4d5c64292",
+        "credentials": {
+          "whatsAppApi": {
+            "id": "8EQFCUns2iIefbHd",
+            "name": "whatsapp-business-api"
+          }
+        },
+        "notes": "Fixed: Uses correct webhook path for audio.id"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "voice-text",
+                "name": "messageText",
+                "value": "={{ $json.text }}",
+                "type": "string"
+              },
+              {
+                "id": "voice-from",
+                "name": "from",
+                "value": "={{ $('WhatsApp Trigger2').item.json.messages[0].from }}",
+                "type": "string"
+              },
+              {
+                "id": "voice-name",
+                "name": "customerName",
+                "value": "={{ $('WhatsApp Trigger2').item.json.contacts[0].profile.name }}",
+                "type": "string"
+              },
+              {
+                "id": "voice-id",
+                "name": "messageId",
+                "value": "={{ $('WhatsApp Trigger2').item.json.messages[0].id }}",
+                "type": "string"
+              },
+              {
+                "id": "voice-timestamp",
+                "name": "timestamp",
+                "value": "={{ $('WhatsApp Trigger2').item.json.messages[0].timestamp }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "d21222d9-8c58-4ab0-ab8f-caa6fc7ba236",
+        "name": "Extract Voice Data",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -3760,
+          624
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "// Fixed Unify Message Paths - handles Switch routing and debug logging\n// For Code nodes after Switch, $input.item is the active path item\nconst item = $input.item.json;\n\nconsole.log('Unify input received:', JSON.stringify(item, null, 2));\n\n// Check if we have message data (from text or voice path)\nif (!item || !item.messageText) {\n  console.log('ERROR: No messageText in input - check Switch/Extract nodes');\n  console.log('Full input structure:', JSON.stringify($input.item, null, 2));\n  return [{ json: { error: 'No message data', sourcePath: 'none' } }];\n}\n\n// Create unified item with source tracking\nconst unifiedItem = {\n  ...item,\n  sourcePath: item.sourcePath || (item.textFrom ? 'text' : 'voice'),  // Track origin\n  messageText: item.messageText.trim(),\n  hasValidMessage: true\n};\n\nconsole.log('Unified output:', JSON.stringify(unifiedItem, null, 2));\n\nreturn [{ json: unifiedItem }];"
+        },
+        "id": "721ef731-f9f2-451e-842b-4487c10ba9a8",
+        "name": "Unify Message Paths",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -3536,
+          528
+        ],
+        "notes": "Fixed: Uses $input.item for Switch paths. Logs full input/output for debugging. Ensures 1 item output always."
+      },
+      {
+        "parameters": {
+          "jsCode": "// Parse AI Agent response - Fixed for AI Agent node output\nconst aiInput = $input.item.json;\nconsole.log('Parse AI input:', JSON.stringify(aiInput, null, 2));\n\n// AI Agent outputs to 'output' field (not 'message.content')\nlet aiResponse = '';\nif (aiInput.output) {\n  aiResponse = aiInput.output;  // AI Agent format\n} else if (aiInput.text) {\n  aiResponse = aiInput.text;  // Alternative format\n} else if (aiInput.message && aiInput.message.content) {\n  aiResponse = aiInput.message.content;  // Old OpenAI format\n} else if (aiInput.content) {\n  aiResponse = aiInput.content;  // Fallback\n} else {\n  console.log('WARNING: No AI response found in input');\n  aiResponse = 'No AI response available';\n}\n\nconsole.log('Extracted AI response:', aiResponse);\n\n// Extract response text and metadata (before [markers])\nconst lines = aiResponse.split('\\n');\nlet responseText = '';\nlet leadQuality = 'COLD';\nlet nextAction = 'NURTURE';\nlet needsEscalation = false;\n\nfor (const line of lines) {\n  if (line.includes('[LEAD_QUALITY:')) {\n    const match = line.match(/\\[LEAD_QUALITY:\\s*(HOT|WARM|COLD)\\]/i);\n    if (match) leadQuality = match[1];\n  } else if (line.includes('[NEXT_ACTION:')) {\n    const match = line.match(/\\[NEXT_ACTION:\\s*(\\w+)\\]/i);\n    if (match) nextAction = match[1];\n  } else if (line.includes('[ESCALATE_TO_HUMAN]')) {\n    needsEscalation = true;\n  } else if (!line.startsWith('[')) {\n    responseText += line + '\\n';\n  }\n}\n\nresponseText = responseText.trim();\n\n// Get base data from previous node - use Unify Message Paths as the source\nconst unifyData = $('Unify Message Paths').item.json;\n\n// Build unified output with all required fields\nconst output = {\n  from: unifyData.from || aiInput.from || 'unknown',\n  customerName: unifyData.customerName || aiInput.customerName || 'Customer',\n  messageId: unifyData.messageId || aiInput.messageId || 'unknown',\n  messageText: unifyData.messageText || aiInput.messageText || 'unknown',\n  timestamp: unifyData.timestamp || aiInput.timestamp || $now.toISO(),\n  phoneNumber: (unifyData.from || aiInput.from || '').replace('@s.whatsapp.net', ''),\n  aiResponse: responseText,\n  leadQuality: leadQuality,\n  nextAction: nextAction,\n  needsEscalation: needsEscalation,\n  fromCache: false,\n  responseSource: 'ai-agent',\n  cacheKey: null,\n  needsFollowUp: ['HOT', 'WARM'].includes(leadQuality)\n};\n\nconsole.log('Parse AI output:', JSON.stringify(output, null, 2));\n\nreturn { json: output };"
+        },
+        "id": "8d7afaf1-afc2-4df1-aaa4-9b58a201f3d8",
+        "name": "Parse AI Response",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -2720,
+          640
+        ],
+        "notes": "Extracts AI response, detects escalation, adds tracking flags"
+      },
+      {
+        "parameters": {
+          "operation": "send",
+          "phoneNumberId": "=762171880324039",
+          "recipientPhoneNumber": "={{ $('Unify Message Paths').item.json.from }}",
+          "textBody": "={{ $json.aiResponse }}",
+          "additionalFields": {}
+        },
+        "type": "n8n-nodes-base.whatsApp",
+        "typeVersion": 1.1,
+        "position": [
+          -2368,
+          656
+        ],
+        "id": "339543a6-cc55-4276-8b33-4aaccc5ebd8d",
+        "name": "Send Response",
+        "webhookId": "de32c8eb-eafd-40c5-85d5-ade6f9abcefa",
+        "credentials": {
+          "whatsAppApi": {
+            "id": "8EQFCUns2iIefbHd",
+            "name": "whatsapp-business-api"
+          }
+        },
+        "notes": "Sends unified response (from cache or AI) to customer"
+      },
+      {
+        "parameters": {
+          "documentId": {
+            "__rl": true,
+            "value": "1tBmut86wQXS22bzvXny5DnerXxKWozqr_KbQEvBE8rQ",
+            "mode": "id"
+          },
+          "sheetName": {
+            "__rl": true,
+            "value": "gid=0",
+            "mode": "list",
+            "cachedResultName": "Leads",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tBmut86wQXS22bzvXny5DnerXxKWozqr_KbQEvBE8rQ/edit#gid=0"
+          },
+          "options": {}
+        },
+        "id": "ef88af57-5afe-4032-a0e1-c0c7dfe9555a",
+        "name": "Log Lead",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.5,
+        "position": [
+          -1920,
+          368
+        ],
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "NsDs55yNufsJezQc",
+            "name": "Google Sheets account"
+          }
+        },
+        "notes": "Logs with cache tracking - update Sheets to add 'From Cache', 'Response Source', 'Cache Key' columns"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {},
+            "conditions": [
+              {
+                "id": "hot-check",
+                "leftValue": "={{ $json.leadQuality }}",
+                "rightValue": "HOT",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals"
+                }
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "fac589ff-7e93-46dd-b984-0a020c64bab7",
+        "name": "Is HOT Lead?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          -1872,
+          720
+        ]
+      },
+      {
+        "parameters": {
+          "authentication": "oAuth2",
+          "select": "channel",
+          "channelId": {
+            "__rl": true,
+            "value": "={{ $env.SLACK_CHANNEL_HOT_LEADS }}",
+            "mode": "id"
+          },
+          "messageType": "block",
+          "blocksUi": {
+            "blocksValues": [
+              {
+                "type": "header",
+                "text": "🔥 HOT LEAD ALERT"
+              },
+              {
+                "type": "section",
+                "text": {
+                  "text": "=*Customer:* {{ $json.customerName }}\\n*Phone:* +{{ $json.phoneNumber }}\\n*Lead Quality:* HOT 🔥",
+                  "textType": "mrkdwn"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "text": "=*Their Message:*\\n{{ $json.messageText }}",
+                  "textType": "mrkdwn"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "text": "=*Bot Response:*\\n{{ $json.aiResponse }}",
+                  "textType": "mrkdwn"
+                }
+              },
+              {
+                "type": "actions",
+                "actionElements": [
+                  {
+                    "type": "button",
+                    "text": "View in Sheets",
+                    "url": "={{ $env.GOOGLE_SHEETS_LEADS_URL }}",
+                    "actionId": "view_lead"
+                  }
+                ]
+              }
+            ]
+          },
+          "otherOptions": {}
+        },
+        "id": "26bc9994-9693-4f54-a3ca-5e1bc3498bba",
+        "name": "Notify Team (HOT)",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 2.2,
+        "position": [
+          -5328,
+          192
+        ],
+        "webhookId": "25ab127e-fe4c-4eb9-9415-e22923b7ecb2"
+      },
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "hours",
+                "hoursInterval": 48
+              }
+            ]
+          }
+        },
+        "id": "d1f7b8fd-9221-44fe-acf5-1e694ec38e50",
+        "name": "Follow-Up Schedule",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          -5328,
+          848
+        ]
+      },
+      {
+        "parameters": {
+          "documentId": "={{ $env.GOOGLE_SHEETS_LEADS_ID }}",
+          "sheetName": {
+            "__rl": true,
+            "value": "Leads",
+            "mode": "list"
+          },
+          "options": {}
+        },
+        "id": "0f541f76-0764-410f-8cea-bae24f844435",
+        "name": "Read Leads",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.5,
+        "position": [
+          -5104,
+          848
+        ],
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "NsDs55yNufsJezQc",
+            "name": "Google Sheets account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// Filter leads that need follow-up\nconst items = $input.all();\nconst now = new Date();\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  // Skip header row\n  if (data['Timestamp'] === 'Timestamp') continue;\n  \n  const leadQuality = data['Lead Quality'];\n  const status = data['Status'];\n  const followUpDate = data['Follow Up Date'];\n  \n  // Only follow up with HOT and WARM leads\n  if ((leadQuality === 'HOT' || leadQuality === 'WARM') && \n      (status === 'New' || status === 'Nurturing') &&\n      followUpDate) {\n    \n    const followUpTime = new Date(followUpDate);\n    \n    if (followUpTime <= now) {\n      results.push({\n        json: {\n          customerName: data['Customer Name'],\n          phoneNumber: data['Phone Number'],\n          lastMessage: data['Message'],\n          leadQuality: leadQuality,\n          from: data['Phone Number'] + '@s.whatsapp.net'\n        }\n      });\n    }\n  }\n}\n\nreturn results;"
+        },
+        "id": "e6d714d5-035a-478e-ab00-0627ded6f9c6",
+        "name": "Filter Follow-Up Leads",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -4880,
+          848
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "text"
+        },
+        "id": "16f80579-dce6-4430-8bf8-34ecfcb8131e",
+        "name": "Generate Follow-Up",
+        "type": "@n8n/n8n-nodes-langchain.openAi",
+        "typeVersion": 1.7,
+        "position": [
+          -4656,
+          848
+        ],
+        "credentials": {
+          "openAiApi": {
+            "id": "GDBqlBJ6ZO62iibt",
+            "name": "OpenAi account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "send",
+          "phoneNumberId": "762171880324039",
+          "recipientPhoneNumber": "={{ $json.phoneNumber }}",
+          "textBody": "={{ $('Generate Follow-Up').item.json.message.content }}",
+          "additionalFields": {}
+        },
+        "type": "n8n-nodes-base.whatsApp",
+        "typeVersion": 1.1,
+        "position": [
+          -4432,
+          848
+        ],
+        "id": "bbb33c50-3e8b-4a59-b6c1-dec729a9f1cb",
+        "name": "Send Follow-Up",
+        "webhookId": "e908b1ee-9b6f-4a5a-8c15-e84984a4d0b7",
+        "credentials": {
+          "whatsAppApi": {
+            "id": "8EQFCUns2iIefbHd",
+            "name": "whatsapp-business-api"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "update",
+          "documentId": "={{ $env.GOOGLE_SHEETS_LEADS_ID }}",
+          "sheetName": "Leads",
+          "columns": {
+            "mappingMode": "autoMapInputData",
+            "value": {}
+          },
+          "options": {
+            "cellFormat": "USER_ENTERED"
+          }
+        },
+        "id": "c637b157-d5cb-4279-b548-61b1b0a7723f",
+        "name": "Update Lead Status",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.5,
+        "position": [
+          -4208,
+          848
+        ],
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "NsDs55yNufsJezQc",
+            "name": "Google Sheets account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $json.messageText }}",
+          "options": {
+            "systemMessage": "You are Sarah, a senior account manager at a premium digital marketing agency. You communicate like a confident, warm professional who remembers context from previous messages.\nCRITICAL: Conversation Memory Rules\n\nNEVER repeat your introduction if you've already introduced yourself in this conversation\nReference previous messages naturally: \"Like I mentioned\", \"Building on what we discussed\", \"Based on what you shared\"\nTrack conversation stage: First contact → Discovery → Qualification → Next steps\nDon't reset personality: Stay consistent throughout the entire conversation thread\n\nCommunication Style\n\nBrevity first: 2-3 sentences for simple questions. Elaborate only when specifically asked\nConversational flow: Use contractions, vary rhythm, sound like texting a colleague\nEmpathetic phrases: \"I get that\", \"Makes sense\", \"Totally understand\", \"Love that\", \"Good question\"\nSmart name usage:\n\nUse {{ $json.customerName }} only in opening message if available\nSkip names in follow-ups—just respond directly\nIf no name after 2-3 exchanges: \"Quick question—who am I chatting with?\" (natural, not formal)\n\n\nEmojis: Max 1-2 per message, only when natural: ✨🚀💼📊💰😊\nMax length: 150 words (usually much less)\n\nOpening Strategy (FIRST MESSAGE ONLY)\nChoose based on context:\n\nGeneric inquiry: \"Hey! What brought you here today?\"\nSpecific question: Jump straight to answer with warmth\nIf name available: \"Hi [Name]! Happy to help 😊\"\n\nNEVER say \"Hey! I'm Sarah from the team\" more than once per conversation\nCore Package: AED 3,000/Month\n\n15-20 posts/month (Instagram, Facebook, LinkedIn)\nDaily engagement + community management\nMonthly performance reports with insights\nDedicated account manager (that's me!)\nLaunch in 3-5 days\nROI: 3-5x within 6 months typically\n\nPosition as: Monthly investment for consistent brand presence. Sweet spot for most businesses.\nOther Tiers (Don't Quote—Escalate Instead)\n\nUnder AED 2K: 8-12 posts, lighter engagement\nAbove AED 4.5K: 25-30 posts, video production, paid ads, influencer work\n\nEscalation Triggers → [ESCALATE_TO_HUMAN]\nEnd response with marker if query involves:\n\nCustom pricing or packages >AED 5K\nPayment plans, installments, financing\nEnterprise needs, technical integrations\nLegal, compliance, industry-specific needs\nServices beyond social media management\nPortfolio/case studies/client references\nCompetitor comparisons with pricing\nBudget <AED 2K or >AED 10K\nHigh-value potential (>AED 50K annual)\n\nTemplate: \"This needs our [specialist/strategy director]. Someone will reach out within 2 hours (9 AM-6 PM GST, Sun-Thu) to build something specific for you. [ESCALATE_TO_HUMAN]\"\nCritical Rules\n\nAnswer simply first—elaborate only if asked\nNever fabricate services, pricing, or capabilities\nOnly quote AED 3K package—escalate for other tiers\nSound human—real conversations, not scripts\nStay brief unless detail requested\nRemember context—don't repeat yourself across messages\nBe confident—you're an expert, not reading a manual\n\nYour mission: Help prospects understand if the AED 3K package fits, answer confidently, and guide to next steps. Escalate anything complex or high-value."
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 3,
+        "position": [
+          -3312,
+          528
+        ],
+        "id": "e2f8894a-a2f3-47d2-8763-ef6cd7217696",
+        "name": "AI Agent"
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "value": "chatgpt-4o-latest",
+            "mode": "list",
+            "cachedResultName": "chatgpt-4o-latest"
+          },
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.2,
+        "position": [
+          -3456,
+          736
+        ],
+        "id": "d99c1855-022f-4228-9314-768d160d3225",
+        "name": "OpenAI Chat Model",
+        "credentials": {
+          "openAiApi": {
+            "id": "GDBqlBJ6ZO62iibt",
+            "name": "OpenAi account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "sessionIdType": "customKey",
+          "sessionKey": "={{ $json.from }}",
+          "contextWindowLength": 20
+        },
+        "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+        "typeVersion": 1.3,
+        "position": [
+          -3296,
+          752
+        ],
+        "id": "a8b1fed6-a471-4e47-9073-1441b0a3e4fd",
+        "name": "Simple Memory"
+      },
+      {
+        "parameters": {
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -4432,
+          624
+        ],
+        "id": "ae31af47-255f-4a88-8a3e-5a74687dab40",
+        "name": "Edit Fields"
+      },
+      {
+        "parameters": {
+          "amount": 8
+        },
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          -2528,
+          640
+        ],
+        "id": "e9df5400-080d-42ef-a599-fe57f7a6bbd1",
+        "name": "Human Delay",
+        "webhookId": "delay-webhook",
+        "notes": "2 second delay to simulate human response time"
+      },
+      {
+        "parameters": {
+          "url": "={{ $('Download media2').item.json.url }}",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.3,
+        "position": [
+          -4208,
+          624
+        ],
+        "id": "d846e3ce-d704-47a2-baa8-54750df8d2d9",
+        "name": "Download Audio",
+        "retryOnFail": true,
+        "maxTries": 2,
+        "waitBetweenTries": 10,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "vqwFoUdQal57OhYT",
+            "name": "Whatsapp Media Download"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "resource": "audio",
+          "operation": "transcribe",
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.openAi",
+        "typeVersion": 2,
+        "position": [
+          -3984,
+          624
+        ],
+        "id": "f5dcdb70-293f-4976-9093-32d8787ea0dc",
+        "name": "Transcribe a recording",
+        "credentials": {
+          "openAiApi": {
+            "id": "GDBqlBJ6ZO62iibt",
+            "name": "OpenAi account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "ec4117fb-ecc4-4fc2-9d45-1d47c4416e7b",
+                "leftValue": "={{ $('WhatsApp Trigger2').item.json.messages[0].audio }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "object",
+                  "operation": "exists",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          -2960,
+          528
+        ],
+        "id": "e8eadc4b-a822-423e-837c-8ea8075f9874",
+        "name": "If"
+      },
+      {
+        "parameters": {
+          "resource": "audio",
+          "model": "tts-1-hd",
+          "input": "={{ $json.output }}",
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.openAi",
+        "typeVersion": 2,
+        "position": [
+          -2720,
+          432
+        ],
+        "id": "139b4689-1cfb-4765-aba5-bbda39d4acd7",
+        "name": "Generate audio",
+        "credentials": {
+          "openAiApi": {
+            "id": "GDBqlBJ6ZO62iibt",
+            "name": "OpenAi account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// Loop over input items and change the MIME type of binary data\nfor (const item of $input.all()) {\n  // Check if the item has binary data\n  if (item.binary) {\n    // Find the binary property name (assuming there's at least one)\n    const binaryPropertyNames = Object.keys(item.binary);\n    \n    for (const propName of binaryPropertyNames) {\n      // If the MIME type is 'audio/mp3', change it to 'audio/mpeg'\n      if (item.binary[propName].mimeType === 'audio/mp3') {\n        item.binary[propName].mimeType = 'audio/mpeg';\n      }\n    }\n  }\n}\n\nreturn $input.all();"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -2464,
+          384
+        ],
+        "id": "e6de8434-a457-4eae-840b-9e5f380c0dc8",
+        "name": "Code in JavaScript"
+      },
+      {
+        "parameters": {
+          "operation": "send",
+          "phoneNumberId": "=762171880324039",
+          "recipientPhoneNumber": "={{ $('Unify Message Paths').item.json.from }}",
+          "messageType": "audio",
+          "mediaPath": "useMedian8n",
+          "additionalFields": {}
+        },
+        "id": "0a6a2d98-d7c1-4366-866b-db36fe19cc11",
+        "name": "Send Voice Response",
+        "type": "n8n-nodes-base.whatsApp",
+        "typeVersion": 1.1,
+        "position": [
+          -2192,
+          336
+        ],
+        "webhookId": "cb0f0a73-a2dd-4e2a-abb0-903e6cb162b9",
+        "credentials": {
+          "whatsAppApi": {
+            "id": "8EQFCUns2iIefbHd",
+            "name": "whatsapp-business-api"
+          }
+        },
+        "notes": "Sends the generated voice response as an audio message, replying to the original customer message"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://trart.uk.app.n8n.cloud/webhook/hot-lead-trigger",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {}
+            ]
+          },
+          "options": {}
+        },
+        "id": "071745b0-ec59-42be-b3f5-35c62d0dc821",
+        "name": "🎙️ Trigger Vapi Call",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -1664,
+          1120
+        ],
+        "notes": "Triggers Vapi to call HOT lead within 30 seconds. Lead will receive voice call from Maya."
+      },
+      {
+        "parameters": {
+          "operation": "send",
+          "phoneNumberId": "=762171880324039",
+          "recipientPhoneNumber": "={{ $json.phoneNumber }}",
+          "textBody": "'Let me schedule a call at the earliest possible for you' ",
+          "additionalFields": {}
+        },
+        "id": "51427d5a-a6a8-4094-883a-a315b0675dab",
+        "name": "WhatsApp: Pre-Call Alert",
+        "type": "n8n-nodes-base.whatsApp",
+        "typeVersion": 1.1,
+        "position": [
+          -1504,
+          512
+        ],
+        "webhookId": "pre-call-alert-webhook",
+        "credentials": {
+          "whatsAppApi": {
+            "id": "8EQFCUns2iIefbHd",
+            "name": "whatsapp-business-api"
+          }
+        },
+        "notes": "Sends WhatsApp message before calling to warm up the lead (reduces hang-ups)"
+      },
+      {
+        "parameters": {
+          "amount": 30
+        },
+        "id": "4859d92a-6cb9-4461-aecb-3aef64dffb92",
+        "name": "Wait 30s",
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          -1568,
+          784
+        ],
+        "webhookId": "wait-webhook",
+        "notes": "Gives lead time to read WhatsApp message before receiving call"
+      }
+    ],
+    "connections": {
+      "Message Router2": {
+        "main": [
+          [
+            {
+              "node": "Extract Text2",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Download media2",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract Text2": {
+        "main": [
+          [
+            {
+              "node": "Unify Message Paths",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "WhatsApp Trigger2": {
+        "main": [
+          [
+            {
+              "node": "Message Router2",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Download media2": {
+        "main": [
+          [
+            {
+              "node": "Edit Fields",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract Voice Data": {
+        "main": [
+          [
+            {
+              "node": "Unify Message Paths",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Unify Message Paths": {
+        "main": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse AI Response": {
+        "main": [
+          [
+            {
+              "node": "Human Delay",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send Response": {
+        "main": [
+          []
+        ]
+      },
+      "Log Lead": {
+        "main": [
+          [
+            {
+              "node": "Is HOT Lead?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is HOT Lead?": {
+        "main": [
+          [
+            {
+              "node": "WhatsApp: Pre-Call Alert",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Follow-Up Schedule": {
+        "main": [
+          [
+            {
+              "node": "Read Leads",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Read Leads": {
+        "main": [
+          [
+            {
+              "node": "Filter Follow-Up Leads",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Filter Follow-Up Leads": {
+        "main": [
+          [
+            {
+              "node": "Generate Follow-Up",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Generate Follow-Up": {
+        "main": [
+          [
+            {
+              "node": "Send Follow-Up",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send Follow-Up": {
+        "main": [
+          [
+            {
+              "node": "Update Lead Status",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "AI Agent": {
+        "main": [
+          [
+            {
+              "node": "If",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Simple Memory": {
+        "ai_memory": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "ai_memory",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Edit Fields": {
+        "main": [
+          [
+            {
+              "node": "Download Audio",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Human Delay": {
+        "main": [
+          [
+            {
+              "node": "Send Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Download Audio": {
+        "main": [
+          [
+            {
+              "node": "Transcribe a recording",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Transcribe a recording": {
+        "main": [
+          [
+            {
+              "node": "Extract Voice Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "If": {
+        "main": [
+          [
+            {
+              "node": "Generate audio",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Parse AI Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Generate audio": {
+        "main": [
+          [
+            {
+              "node": "Code in JavaScript",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Code in JavaScript": {
+        "main": [
+          [
+            {
+              "node": "Send Voice Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send Voice Response": {
+        "main": [
+          [
+            {
+              "node": "Log Lead",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "WhatsApp: Pre-Call Alert": {
+        "main": [
+          [
+            {
+              "node": "Wait 30s",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Wait 30s": {
+        "main": [
+          [
+            {
+              "node": "🎙️ Trigger Vapi Call",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "pinData": {},
+    "meta": {
+      "templateCredsSetupCompleted": true,
+      "instanceId": "a4b38727ba90b835333482770c4214c346550804c41a3a21391b277993132826"
+    }
+  }

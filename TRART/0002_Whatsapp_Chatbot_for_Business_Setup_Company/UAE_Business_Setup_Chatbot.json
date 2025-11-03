@@ -1,0 +1,898 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "has-text-fixed",
+                    "leftValue": "={{ $json.messages[0].text.body }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Text"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "has-voice-fixed",
+                    "leftValue": "={{ $json.messages[0].audio.sha256 }}",
+                    "rightValue": "voice",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "has-audio-fixed",
+                    "leftValue": "={{ $json.messages[0].audio.id }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists"
+                    }
+                  }
+                ],
+                "combinator": "or"
+              },
+              "renameOutput": true,
+              "outputKey": "Audio"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "05ba9d87-5525-4e73-925e-9a5fbe6dfd7b",
+      "name": "Message Router2",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [-4880, 512],
+      "notes": "Routes incoming messages to text or audio processing paths"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "text-msg-fixed",
+              "name": "messageText",
+              "value": "={{ $json.messages[0].text.body }}",
+              "type": "string"
+            },
+            {
+              "id": "from-number-fixed",
+              "name": "from",
+              "value": "={{ $json.messages[0].from }}",
+              "type": "string"
+            },
+            {
+              "id": "customer-name-fixed",
+              "name": "customerName",
+              "value": "={{ $json.contacts[0].profile.name }}",
+              "type": "string"
+            },
+            {
+              "id": "msg-id-fixed",
+              "name": "messageId",
+              "value": "={{ $json.messages[0].id }}",
+              "type": "string"
+            },
+            {
+              "id": "timestamp-fixed",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "phone-fixed",
+              "name": "phoneNumber",
+              "value": "={{ $json.contacts[0].wa_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7c5ab539-601d-4253-ae7f-99b474188e41",
+      "name": "Extract Text2",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-3760, 432],
+      "notes": "Extracts text message data from WhatsApp webhook"
+    },
+    {
+      "parameters": {
+        "updates": ["messages"],
+        "options": {}
+      },
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [-5328, 528],
+      "id": "67b96315-3cec-4a38-8636-84aa3b432730",
+      "name": "WhatsApp Trigger2",
+      "webhookId": "789162ca-1693-4d00-8c8e-7c6a5dbe0e85",
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "id": "tQYHH4zApAX5wGMR",
+          "name": "WhatsApp OAuth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "media",
+        "operation": "mediaUrlGet",
+        "mediaGetId": "={{ $json.messages[0].audio.id }}"
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [-4656, 624],
+      "id": "4fff95ee-e7fc-4f28-9063-ac97880154e5",
+      "name": "Download media2",
+      "webhookId": "d41be550-2acd-47b3-97da-72c4d5c64292",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "8EQFCUns2iIefbHd",
+          "name": "whatsapp-business-api"
+        }
+      },
+      "notes": "Gets media URL for audio messages"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "voice-text",
+              "name": "messageText",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "voice-from",
+              "name": "from",
+              "value": "={{ $('WhatsApp Trigger2').item.json.messages[0].from }}",
+              "type": "string"
+            },
+            {
+              "id": "voice-name",
+              "name": "customerName",
+              "value": "={{ $('WhatsApp Trigger2').item.json.contacts[0].profile.name }}",
+              "type": "string"
+            },
+            {
+              "id": "voice-id",
+              "name": "messageId",
+              "value": "={{ $('WhatsApp Trigger2').item.json.messages[0].id }}",
+              "type": "string"
+            },
+            {
+              "id": "voice-timestamp",
+              "name": "timestamp",
+              "value": "={{ $('WhatsApp Trigger2').item.json.messages[0].timestamp }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d21222d9-8c58-4ab0-ab8f-caa6fc7ba236",
+      "name": "Extract Voice Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-3760, 624]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.item.json;\n\nconsole.log('Unify input received:', JSON.stringify(item, null, 2));\n\nif (!item || !item.messageText) {\n  console.log('ERROR: No messageText in input');\n  return [{ json: { error: 'No message data', sourcePath: 'none' } }];\n}\n\nconst unifiedItem = {\n  ...item,\n  sourcePath: item.sourcePath || (item.textFrom ? 'text' : 'voice'),\n  messageText: item.messageText.trim(),\n  hasValidMessage: true\n};\n\nconsole.log('Unified output:', JSON.stringify(unifiedItem, null, 2));\n\nreturn [{ json: unifiedItem }];"
+      },
+      "id": "721ef731-f9f2-451e-842b-4487c10ba9a8",
+      "name": "Unify Message Paths",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-3536, 528],
+      "notes": "Merges text and voice paths into unified format"
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiInput = $input.item.json;\nconsole.log('Parse AI input:', JSON.stringify(aiInput, null, 2));\n\nlet aiResponse = '';\nif (aiInput.output) {\n  aiResponse = aiInput.output;\n} else if (aiInput.text) {\n  aiResponse = aiInput.text;\n} else if (aiInput.message && aiInput.message.content) {\n  aiResponse = aiInput.message.content;\n} else if (aiInput.content) {\n  aiResponse = aiInput.content;\n} else {\n  console.log('WARNING: No AI response found');\n  aiResponse = 'No AI response available';\n}\n\nconst lines = aiResponse.split('\\n');\nlet responseText = '';\nlet leadQuality = 'COLD';\nlet nextAction = 'NURTURE';\nlet needsEscalation = false;\nlet businessActivity = '';\nlet targetMarket = '';\nlet budget = '';\nlet visas = '';\nlet timeline = '';\n\nfor (const line of lines) {\n  if (line.includes('[LEAD_QUALITY:')) {\n    const match = line.match(/\\[LEAD_QUALITY:\\s*(HOT|WARM|COLD)\\]/i);\n    if (match) leadQuality = match[1].toUpperCase();\n  } else if (line.includes('[NEXT_ACTION:')) {\n    const match = line.match(/\\[NEXT_ACTION:\\s*(\\w+)\\]/i);\n    if (match) nextAction = match[1];\n  } else if (line.includes('[ESCALATE_TO_HUMAN]')) {\n    needsEscalation = true;\n  } else if (line.includes('[BUSINESS_ACTIVITY:')) {\n    const match = line.match(/\\[BUSINESS_ACTIVITY:\\s*([^\\]]+)\\]/i);\n    if (match) businessActivity = match[1].trim();\n  } else if (line.includes('[TARGET_MARKET:')) {\n    const match = line.match(/\\[TARGET_MARKET:\\s*(Mainland|Free Zone|Both)\\]/i);\n    if (match) targetMarket = match[1];\n  } else if (line.includes('[BUDGET:')) {\n    const match = line.match(/\\[BUDGET:\\s*([^\\]]+)\\]/i);\n    if (match) budget = match[1].trim();\n  } else if (line.includes('[VISAS:')) {\n    const match = line.match(/\\[VISAS:\\s*(\\d+)\\]/i);\n    if (match) visas = match[1];\n  } else if (line.includes('[TIMELINE:')) {\n    const match = line.match(/\\[TIMELINE:\\s*(Immediate|1 Month|Exploring)\\]/i);\n    if (match) timeline = match[1];\n  } else if (!line.startsWith('[')) {\n    responseText += line + '\\n';\n  }\n}\n\nresponseText = responseText.trim();\n\nconst unifyData = $('Unify Message Paths').item.json;\n\nconst output = {\n  from: unifyData.from || aiInput.from || 'unknown',\n  customerName: unifyData.customerName || aiInput.customerName || 'Customer',\n  messageId: unifyData.messageId || aiInput.messageId || 'unknown',\n  messageText: unifyData.messageText || aiInput.messageText || 'unknown',\n  timestamp: unifyData.timestamp || aiInput.timestamp || $now.toISO(),\n  phoneNumber: (unifyData.from || aiInput.from || '').replace('@s.whatsapp.net', ''),\n  aiResponse: responseText,\n  leadQuality: leadQuality,\n  nextAction: nextAction,\n  needsEscalation: needsEscalation,\n  businessActivity: businessActivity,\n  targetMarket: targetMarket,\n  budget: budget,\n  visas: visas,\n  timeline: timeline,\n  fromCache: false,\n  responseSource: 'ai-agent',\n  cacheKey: null,\n  needsFollowUp: ['HOT', 'WARM'].includes(leadQuality)\n};\n\nconsole.log('Parse AI output:', JSON.stringify(output, null, 2));\n\nreturn { json: output };"
+      },
+      "id": "8d7afaf1-afc2-4df1-aaa4-9b58a201f3d8",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-2720, 640],
+      "notes": "Extracts AI response, business setup markers, strips internal tags"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.item.json;\nconst now = new Date();\nlet followUpDate = '';\nlet status = 'New';\n\nif (input.leadQuality === 'HOT') {\n  const followUp = new Date(now.getTime() + (4 * 60 * 60 * 1000));\n  followUpDate = followUp.toISOString();\n  status = 'Hot - Immediate Action';\n} else if (input.leadQuality === 'WARM') {\n  const followUp = new Date(now.getTime() + (24 * 60 * 60 * 1000));\n  followUpDate = followUp.toISOString();\n  status = 'Warm - Nurturing';\n} else {\n  const followUp = new Date(now.getTime() + (48 * 60 * 60 * 1000));\n  followUpDate = followUp.toISOString();\n  status = 'Cold - Long-term';\n}\n\nconst leadData = {\n  'Timestamp': input.timestamp || now.toISOString(),\n  'Full Name': input.customerName || 'Unknown',\n  'Phone Number': input.phoneNumber || '',\n  'Business Activity': input.businessActivity || 'Not specified',\n  'Target Market': input.targetMarket || 'Not specified',\n  'Budget Range': input.budget || 'Not specified',\n  'Visa Needs': input.visas || 'Not specified',\n  'Timeline': input.timeline || 'Not specified',\n  'Customer Message': input.messageText || '',\n  'AI Response': input.aiResponse || '',\n  'Lead Quality': input.leadQuality || 'COLD',\n  'Status': status,\n  'Follow Up Date': followUpDate,\n  'Next Action': input.nextAction || 'NURTURE',\n  'Needs Escalation': input.needsEscalation ? 'Yes' : 'No',\n  'Response Source': input.responseSource || 'ai-agent',\n  'Message ID': input.messageId || ''\n};\n\nreturn { json: leadData };"
+      },
+      "id": "prepare-lead-data-node",
+      "name": "Prepare Lead Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-2528, 768],
+      "notes": "Formats extracted business setup data for Google Sheets"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=762171880324039",
+        "recipientPhoneNumber": "={{ $('Unify Message Paths').item.json.from }}",
+        "textBody": "={{ $('Parse AI Response').item.json.aiResponse }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [-2368, 656],
+      "id": "339543a6-cc55-4276-8b33-4aaccc5ebd8d",
+      "name": "Send Response",
+      "webhookId": "de32c8eb-eafd-40c5-85d5-ade6f9abcefa",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "8EQFCUns2iIefbHd",
+          "name": "whatsapp-business-api"
+        }
+      },
+      "notes": "Sends cleaned AI response to customer"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1tBmut86wQXS22bzvXny5DnerXxKWozqr_KbQEvBE8rQ",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tBmut86wQXS22bzvXny5DnerXxKWozqr_KbQEvBE8rQ/edit#gid=0"
+        },
+        "options": {}
+      },
+      "id": "ef88af57-5afe-4032-a0e1-c0c7dfe9555a",
+      "name": "Log Lead",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [-2144, 768],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "NsDs55yNufsJezQc",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "Logs formatted lead data to Google Sheets"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "hot-check",
+              "leftValue": "={{ $('Parse AI Response').item.json.leadQuality }}",
+              "rightValue": "HOT",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fac589ff-7e93-46dd-b984-0a020c64bab7",
+      "name": "Is HOT Lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-1920, 768]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "={{ $env.SLACK_CHANNEL_HOT_LEADS }}",
+          "mode": "id"
+        },
+        "messageType": "block",
+        "blocksUi": {
+          "blocksValues": [
+            {
+              "type": "header",
+              "text": "🔥 HOT LEAD - UAE Business Setup"
+            },
+            {
+              "type": "section",
+              "text": {
+                "text": "=*Customer:* {{ $('Parse AI Response').item.json.customerName }}\\n*Phone:* +{{ $('Parse AI Response').item.json.phoneNumber }}\\n*Lead Quality:* HOT 🔥",
+                "textType": "mrkdwn"
+              }
+            },
+            {
+              "type": "section",
+              "text": {
+                "text": "=*Business Details:*\\n• Activity: {{ $('Parse AI Response').item.json.businessActivity || 'Not specified' }}\\n• Market: {{ $('Parse AI Response').item.json.targetMarket || 'Not specified' }}\\n• Budget: {{ $('Parse AI Response').item.json.budget || 'Not specified' }}\\n• Visas: {{ $('Parse AI Response').item.json.visas || 'Not specified' }}\\n• Timeline: {{ $('Parse AI Response').item.json.timeline || 'Not specified' }}",
+                "textType": "mrkdwn"
+              }
+            },
+            {
+              "type": "section",
+              "text": {
+                "text": "=*Customer Message:*\\n{{ $('Parse AI Response').item.json.messageText }}",
+                "textType": "mrkdwn"
+              }
+            },
+            {
+              "type": "section",
+              "text": {
+                "text": "=*Bot Response:*\\n{{ $('Parse AI Response').item.json.aiResponse }}",
+                "textType": "mrkdwn"
+              }
+            },
+            {
+              "type": "actions",
+              "actionElements": [
+                {
+                  "type": "button",
+                  "text": "View in Sheets",
+                  "url": "={{ $env.GOOGLE_SHEETS_LEADS_URL }}",
+                  "actionId": "view_lead"
+                }
+              ]
+            }
+          ]
+        },
+        "otherOptions": {}
+      },
+      "id": "26bc9994-9693-4f54-a3ca-5e1bc3498bba",
+      "name": "Notify Team (HOT)",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [-1696, 880],
+      "webhookId": "25ab127e-fe4c-4eb9-9415-e22923b7ecb2"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "hours", "hoursInterval": 48}]
+        }
+      },
+      "id": "d1f7b8fd-9221-44fe-acf5-1e694ec38e50",
+      "name": "Follow-Up Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-5328, 848]
+    },
+    {
+      "parameters": {
+        "documentId": "={{ $env.GOOGLE_SHEETS_LEADS_ID }}",
+        "sheetName": {"__rl": true, "value": "Leads", "mode": "list"},
+        "options": {}
+      },
+      "id": "0f541f76-0764-410f-8cea-bae24f844435",
+      "name": "Read Leads",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [-5104, 848],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "NsDs55yNufsJezQc",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst now = new Date();\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n  if (data['Timestamp'] === 'Timestamp') continue;\n  \n  const leadQuality = data['Lead Quality'];\n  const status = data['Status'];\n  const followUpDate = data['Follow Up Date'];\n  \n  if ((leadQuality === 'HOT' || leadQuality === 'WARM') && \n      (status === 'New' || status.includes('Nurturing') || status.includes('Hot')) &&\n      followUpDate) {\n    const followUpTime = new Date(followUpDate);\n    if (followUpTime <= now) {\n      results.push({\n        json: {\n          customerName: data['Full Name'] || data['Customer Name'],\n          phoneNumber: data['Phone Number'],\n          lastMessage: data['Customer Message'] || data['Message'],\n          businessActivity: data['Business Activity'],\n          leadQuality: leadQuality,\n          from: data['Phone Number'] + '@s.whatsapp.net'\n        }\n      });\n    }\n  }\n}\n\nreturn results;"
+      },
+      "id": "e6d714d5-035a-478e-ab00-0627ded6f9c6",
+      "name": "Filter Follow-Up Leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-4880, 848]
+    },
+    {
+      "parameters": {"operation": "text"},
+      "id": "16f80579-dce6-4430-8bf8-34ecfcb8131e",
+      "name": "Generate Follow-Up",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.7,
+      "position": [-4656, 848],
+      "credentials": {
+        "openAiApi": {
+          "id": "GDBqlBJ6ZO62iibt",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "762171880324039",
+        "recipientPhoneNumber": "={{ $json.phoneNumber }}",
+        "textBody": "={{ $('Generate Follow-Up').item.json.message.content }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [-4432, 848],
+      "id": "bbb33c50-3e8b-4a59-b6c1-dec729a9f1cb",
+      "name": "Send Follow-Up",
+      "webhookId": "e908b1ee-9b6f-4a5a-8c15-e84984a4d0b7",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "8EQFCUns2iIefbHd",
+          "name": "whatsapp-business-api"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": "={{ $env.GOOGLE_SHEETS_LEADS_ID }}",
+        "sheetName": "Leads",
+        "columns": {"mappingMode": "autoMapInputData", "value": {}},
+        "options": {"cellFormat": "USER_ENTERED"}
+      },
+      "id": "c637b157-d5cb-4279-b548-61b1b0a7723f",
+      "name": "Update Lead Status",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [-4208, 848],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "NsDs55yNufsJezQc",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.messageText }}",
+        "options": {
+          "systemMessage": "## PRICING TOOLS (Call these for live pricing)\n\n**fetch_price(package_key)** - Get full package details\n• When: Customer asks about specific zone/package\n• Call: fetch_price({package_key: \"ifza_ecommerce_1v\"})\n• Returns: {zone, visa_count, price_aed, description, setup_days, includes}\n• Error: Returns {error: \"...\"} if not found\n\n**find_cheapest(visa_count)** - Find lowest price for visa count\n• When: Budget concerns or \"what's cheapest\"\n• Call: find_cheapest({visa_count: 1})\n• Returns: {package_key, zone, price_aed, description}\n• Error: Returns {error: \"...\"} if no match\n\n**list_freezones()** - Get all available Free Zones\n• When: \"Which zones available?\"\n• Call: list_freezones({})\n• Returns: {zones: [\"IFZA\", \"DMCC\", ...]}\n• Error: Returns {error: \"...\"} if unavailable\n\n**CRITICAL**: NEVER quote prices from memory. ALWAYS call tools. If tool returns error, say: \"Let me check with my team on that.\"\n\n---\n\nYou are Ahmed, a senior UAE business setup consultant. Communicate like a confident, warm professional who remembers context.\n\n## Memory Rules\n\n- NEVER repeat introduction if already introduced\n- Reference previous messages: \"Like I mentioned\", \"Building on what we discussed\"\n- Track stage: First contact → Discovery → Qualification → Recommendation\n- Stay consistent throughout conversation\n\n## Style\n\n- Brevity first: 2-3 sentences. Elaborate only if asked\n- Conversational: Use contractions, sound like texting a colleague\n- Empathetic: \"I get that\", \"Makes sense\", \"Totally understand\"\n- Name usage: Use {{ $json.customerName }} in opening only, skip in follow-ups\n- Emojis: Max 1-2 per message: 🇦🇪 💼 ✨ 📋 🏢\n- Max length: 150 words\n\n## Opening (FIRST MESSAGE ONLY)\n\n- Generic: \"Hello! Interested in setting up a business in the UAE?\"\n- Specific: Jump to answer with warmth\n- If name available: \"Hello {{ $json.customerName }}! Happy to help 🇦🇪\"\n\n## Discovery (Ask 1-2 at a time)\n\n1. Full Name & Location\n2. Business Type\n3. Target Market (UAE or international)\n4. Activity Details\n5. Ownership (sole/partners)\n6. Visas needed\n7. Office needs\n8. Budget\n9. Timeline\n10. Residence visa needed?\n11. Documentation ready?\n12. Banking assistance?\n\n## Recommendations\n\nAfter gathering visa count and type, USE TOOLS:\n- Call find_cheapest({visa_count: N}) for budget customers\n- Call fetch_price({package_key: \"...\"}) for specific recommendations\n- Call list_freezones({}) when discussing zones\n\nPresent: \"Based on your needs, I recommend [zone]. Let me get current pricing...\" then call tool.\n\n## Objection Handling\n\n**\"Just researching\"**: \"That's fine! I can send a free proposal with options, costs, and process.\"\n\n**\"Too expensive\"**: Call find_cheapest() then: \"I understand. The most affordable for [X] visa(s) is [result]. Can start with flexi-desk and upgrade.\"\n\n**\"I'll decide later\"**: \"No worries—we can reserve your company name today at no charge. Holds preferred name and locks pricing for 30 days.\"\n\n**Budget concerns**: \"What budget range?\" Then call find_cheapest().\n\n## Lead Markers (Will be stripped)\n\n**[BUSINESS_ACTIVITY: text]** - e.g., \"E-commerce\"\n**[TARGET_MARKET: Mainland/Free Zone/Both]**\n**[BUDGET: Under 15K/15-25K/25-30K/Above 30K]**\n**[VISAS: number]**\n**[TIMELINE: Immediate/1 Month/Exploring]**\n**[LEAD_QUALITY: HOT/WARM/COLD]**\n**[NEXT_ACTION: NURTURE/QUOTE/ESCALATE]**\n\n### Lead Quality\n\n**HOT**: Ready (Immediate/1 Month), budget confirmed, clear activity, docs ready, asking next steps\n**WARM**: Interested, 1-2 month timeline, budget identified, needs more info\n**COLD**: Exploring, no timeline, budget unclear, early research\n\n## Escalation → [ESCALATE_TO_HUMAN]\n\nEnd with this if:\n- Custom/complex structures\n- Budget >AED 50K or <AED 10K\n- Payment plans/financing\n- Legal/compliance questions\n- Specific zone comparisons beyond pricing\n- Industry-specific licensing (healthcare/education/finance)\n- Mainland PRO/visa complexities\n- Bank account complexities\n- Business restructuring\n\nTemplate: \"This needs our senior consultant. Someone will reach out within 2 hours (9 AM-6 PM GST, Sun-Thu). [ESCALATE_TO_HUMAN]\"\n\n## Critical Rules\n\n1. Answer simply—elaborate if asked\n2. ALWAYS use pricing tools—never quote from memory\n3. If tool error, escalate or say \"Let me check with team\"\n4. Sound human—real conversations\n5. Stay brief unless detail requested\n6. Remember context—don't repeat\n7. Be confident expert\n8. Always include markers (won't show customer)\n9. Ask 1-2 questions max at a time\n10. Provide actionable next steps\n\n## Mission\n\nHelp prospects understand UAE setup options, qualify leads with markers, answer using live pricing tools, guide to next steps. Escalate complex/high-value inquiries.\n\n## Closing\n\n\"Would you like me to prepare detailed quotation and document checklist? We can have trade license ready in 5-7 working days once documents submitted.\""
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [-3312, 528],
+      "id": "e2f8894a-a2f3-47d2-8763-ef6cd7217696",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "chatgpt-4o-latest",
+          "mode": "list",
+          "cachedResultName": "chatgpt-4o-latest"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [-3456, 736],
+      "id": "d99c1855-022f-4228-9314-768d160d3225",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "GDBqlBJ6ZO62iibt",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.from }}",
+        "contextWindowLength": 20
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [-3296, 752],
+      "id": "a8b1fed6-a471-4e47-9073-1441b0a3e4fd",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {"options": {}},
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-4432, 624],
+      "id": "ae31af47-255f-4a88-8a3e-5a74687dab40",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {"amount": 8},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [-2528, 640],
+      "id": "e9df5400-080d-42ef-a599-fe57f7a6bbd1",
+      "name": "Human Delay",
+      "webhookId": "delay-webhook"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Download media2').item.json.url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [-4208, 624],
+      "id": "d846e3ce-d704-47a2-baa8-54750df8d2d9",
+      "name": "Download Audio",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 10,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "vqwFoUdQal57OhYT",
+          "name": "Whatsapp Media Download"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [-3984, 624],
+      "id": "f5dcdb70-293f-4976-9093-32d8787ea0dc",
+      "name": "Transcribe a recording",
+      "credentials": {
+        "openAiApi": {
+          "id": "GDBqlBJ6ZO62iibt",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ec4117fb-ecc4-4fc2-9d45-1d47c4416e7b",
+              "leftValue": "={{ $('WhatsApp Trigger2').item.json.messages[0].audio }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-2960, 528],
+      "id": "e8eadc4b-a822-423e-837c-8ea8075f9874",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "model": "tts-1-hd",
+        "input": "={{ $json.output }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [-2720, 432],
+      "id": "139b4689-1cfb-4765-aba5-bbda39d4acd7",
+      "name": "Generate audio",
+      "credentials": {
+        "openAiApi": {
+          "id": "GDBqlBJ6ZO62iibt",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "for (const item of $input.all()) {\n  if (item.binary) {\n    const binaryPropertyNames = Object.keys(item.binary);\n    for (const propName of binaryPropertyNames) {\n      if (item.binary[propName].mimeType === 'audio/mp3') {\n        item.binary[propName].mimeType = 'audio/mpeg';\n      }\n    }\n  }\n}\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-2464, 384],
+      "id": "e6de8434-a457-4eae-840b-9e5f380c0dc8",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=762171880324039",
+        "recipientPhoneNumber": "={{ $('Unify Message Paths').item.json.from }}",
+        "messageType": "audio",
+        "mediaPath": "useMedian8n",
+        "additionalFields": {}
+      },
+      "id": "0a6a2d98-d7c1-4366-866b-db36fe19cc11",
+      "name": "Send Voice Response",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [-2192, 336],
+      "webhookId": "cb0f0a73-a2dd-4e2a-abb0-903e6cb162b9",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "8EQFCUns2iIefbHd",
+          "name": "whatsapp-business-api"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "fetch_price",
+        "description": "Fetch detailed pricing for a specific package by its package_key. Returns complete package information including zone, visa count, price, description, setup time, and what's included.",
+        "respondWith": "json",
+        "jsonOutput": "={{ $json }}",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\"package_key\": \"ifza_ecommerce_1v\"}"
+      },
+      "id": "tool-fetch-price",
+      "name": "Tool: fetch_price",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [-3600, 960],
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "name": "find_cheapest",
+        "description": "Find the cheapest package for a given number of visas. Returns the lowest-priced option with package_key, zone, price_aed, and description.",
+        "respondWith": "json",
+        "jsonOutput": "={{ $json }}",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\"visa_count\": 1}"
+      },
+      "id": "tool-find-cheapest",
+      "name": "Tool: find_cheapest",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [-3360, 960],
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "name": "list_freezones",
+        "description": "Get a list of all available UAE Free Zones. Returns an array of zone names from the pricing database.",
+        "respondWith": "json",
+        "jsonOutput": "={{ $json }}",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{}"
+      },
+      "id": "tool-list-freezones",
+      "name": "Tool: list_freezones",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [-3120, 960],
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1ZvPGep1ep2zLH6ze9zgTuXjy54oYb8SdXQMtq68mnvo",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Pricing",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "id": "pricing-sheet-reader",
+      "name": "Read Pricing Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [-3840, 1120],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "NsDs55yNufsJezQc",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "Reads all pricing data once when agent starts"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fetch price implementation\nconst packageKey = $input.first().json.package_key;\n\nif (!packageKey) {\n  return [{json: {error: 'package_key parameter required'}}];\n}\n\nconst pricingData = $('Read Pricing Sheet').all();\nconst pkg = pricingData.find(item => \n  item.json.package_key && \n  item.json.package_key.toLowerCase() === packageKey.toLowerCase()\n);\n\nif (!pkg) {\n  return [{json: {error: `Package '${packageKey}' not found`}}];\n}\n\nreturn [{json: {\n  package_key: pkg.json.package_key || '',\n  zone: pkg.json.zone || '',\n  visa_count: pkg.json.visa_count || 0,\n  price_aed: pkg.json.price_aed || 0,\n  description: pkg.json.description || '',\n  setup_days: pkg.json.setup_days || '',\n  includes: pkg.json.includes || ''\n}}];"
+      },
+      "id": "fetch-price-code",
+      "name": "Fetch Price Logic",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-3600, 1120]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Find cheapest implementation\nconst visaCount = parseInt($input.first().json.visa_count);\n\nif (isNaN(visaCount) || visaCount < 0) {\n  return [{json: {error: 'Valid visa_count (0,1,2,etc) required'}}];\n}\n\nconst pricingData = $('Read Pricing Sheet').all();\nconst matching = pricingData\n  .filter(item => parseInt(item.json.visa_count) === visaCount)\n  .map(item => ({\n    package_key: item.json.package_key || '',\n    zone: item.json.zone || '',\n    price_aed: parseFloat(item.json.price_aed) || 0,\n    description: item.json.description || ''\n  }))\n  .filter(pkg => pkg.price_aed > 0);\n\nif (matching.length === 0) {\n  return [{json: {error: `No packages found for ${visaCount} visa(s)`}}];\n}\n\nconst cheapest = matching.reduce((min, pkg) => \n  pkg.price_aed < min.price_aed ? pkg : min\n);\n\nreturn [{json: cheapest}];"
+      },
+      "id": "find-cheapest-code",
+      "name": "Find Cheapest Logic",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-3360, 1120]
+    },
+    {
+      "parameters": {
+        "jsCode": "// List free zones implementation\nconst pricingData = $('Read Pricing Sheet').all();\n\nconst zones = [...new Set(\n  pricingData\n    .map(item => item.json.zone)\n    .filter(zone => zone && zone.trim().length > 0)\n)].sort();\n\nif (zones.length === 0) {\n  return [{json: {error: 'No free zones found in pricing sheet'}}];\n}\n\nreturn [{json: {zones: zones}}];"
+      },
+      "id": "list-zones-code",
+      "name": "List Zones Logic",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-3120, 1120]
+    }
+  ],
+  "connections": {
+    "Message Router2": {
+      "main": [
+        [{"node": "Extract Text2", "type": "main", "index": 0}],
+        [{"node": "Download media2", "type": "main", "index": 0}]
+      ]
+    },
+    "Extract Text2": {
+      "main": [[{"node": "Unify Message Paths", "type": "main", "index": 0}]]
+    },
+    "WhatsApp Trigger2": {
+      "main": [[{"node": "Message Router2", "type": "main", "index": 0}]]
+    },
+    "Download media2": {
+      "main": [[{"node": "Edit Fields", "type": "main", "index": 0}]]
+    },
+    "Extract Voice Data": {
+      "main": [[{"node": "Unify Message Paths", "type": "main", "index": 0}]]
+    },
+    "Unify Message Paths": {
+      "main": [[{"node": "AI Agent", "type": "main", "index": 0}]]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {"node": "Prepare Lead Data", "type": "main", "index": 0},
+          {"node": "Human Delay", "type": "main", "index": 0}
+        ]
+      ]
+    },
+    "Prepare Lead Data": {
+      "main": [[{"node": "Log Lead", "type": "main", "index": 0}]]
+    },
+    "Send Response": {
+      "main": [[]]
+    },
+    "Log Lead": {
+      "main": [[{"node": "Is HOT Lead?", "type": "main", "index": 0}]]
+    },
+    "Is HOT Lead?": {
+      "main": [[{"node": "Notify Team (HOT)", "type": "main", "index": 0}]]
+    },
+    "Follow-Up Schedule": {
+      "main": [[{"node": "Read Leads", "type": "main", "index": 0}]]
+    },
+    "Read Leads": {
+      "main": [[{"node": "Filter Follow-Up Leads", "type": "main", "index": 0}]]
+    },
+    "Filter Follow-Up Leads": {
+      "main": [[{"node": "Generate Follow-Up", "type": "main", "index": 0}]]
+    },
+    "Generate Follow-Up": {
+      "main": [[{"node": "Send Follow-Up", "type": "main", "index": 0}]]
+    },
+    "Send Follow-Up": {
+      "main": [[{"node": "Update Lead Status", "type": "main", "index": 0}]]
+    },
+    "AI Agent": {
+      "main": [[{"node": "If", "type": "main", "index": 0}]]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [[{"node": "AI Agent", "type": "ai_languageModel", "index": 0}]]
+    },
+    "Simple Memory": {
+      "ai_memory": [[{"node": "AI Agent", "type": "ai_memory", "index": 0}]]
+    },
+    "Edit Fields": {
+      "main": [[{"node": "Download Audio", "type": "main", "index": 0}]]
+    },
+    "Human Delay": {
+      "main": [[{"node": "Send Response", "type": "main", "index": 0}]]
+    },
+    "Download Audio": {
+      "main": [[{"node": "Transcribe a recording", "type": "main", "index": 0}]]
+    },
+    "Transcribe a recording": {
+      "main": [[{"node": "Extract Voice Data", "type": "main", "index": 0}]]
+    },
+    "If": {
+      "main": [
+        [{"node": "Generate audio", "type": "main", "index": 0}],
+        [{"node": "Parse AI Response", "type": "main", "index": 0}]
+      ]
+    },
+    "Generate audio": {
+      "main": [[{"node": "Code in JavaScript", "type": "main", "index": 0}]]
+    },
+    "Code in JavaScript": {
+      "main": [[{"node": "Send Voice Response", "type": "main", "index": 0}]]
+    },
+    "Send Voice Response": {
+      "main": [[{"node": "Parse AI Response", "type": "main", "index": 0}]]
+    },
+    "Tool: fetch_price": {
+      "ai_tool": [[{"node": "AI Agent", "type": "ai_tool", "index": 0}]]
+    },
+    "Tool: find_cheapest": {
+      "ai_tool": [[{"node": "AI Agent", "type": "ai_tool", "index": 0}]]
+    },
+    "Tool: list_freezones": {
+      "ai_tool": [[{"node": "AI Agent", "type": "ai_tool", "index": 0}]]
+    },
+    "Read Pricing Sheet": {
+      "main": [
+        [
+          {"node": "Fetch Price Logic", "type": "main", "index": 0},
+          {"node": "Find Cheapest Logic", "type": "main", "index": 0},
+          {"node": "List Zones Logic", "type": "main", "index": 0}
+        ]
+      ]
+    },
+    "Fetch Price Logic": {
+      "main": [[{"node": "Tool: fetch_price", "type": "main", "index": 0}]]
+    },
+    "Find Cheapest Logic": {
+      "main": [[{"node": "Tool: find_cheapest", "type": "main", "index": 0}]]
+    },
+    "List Zones Logic": {
+      "main": [[{"node": "Tool: list_freezones", "type": "main", "index": 0}]]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "uae-business-setup-bot-dynamic-pricing-v2"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "parameters": {
+    "descriptionType": "manual",
+    "toolDescription": "Get UAE Business Setup Pricing Data\n\nPurpose: Search and retrieve current pricing for UAE business setup packages.\n\nWhat you can search:\n- Package names (IFZA, DMCC, RAKEZ)\n- Number of visas (0, 1, 2 visas)\n- Free zone names\n- Price ranges\n\nWhen to use:\n- Customer asks about pricing\n- Customer wants package recommendations\n- Customer asks \"how much\" or \"what's the cost\"\n\nReturns: package_key, zone, visa_count, price_aed, description, setup_days, includes",
+    "documentId": {
+      "__rl": true,
+      "mode": "id",
+      "value": "1ZvPGep1ep2zLH6ze9zgTuXjy54oYb8SdXQMtq68mnvo"
+    },
+    "sheetName": {
+      "__rl": true,
+      "mode": "list",
+      "value": "Pricing"
+    },
+    "options": {}
+  },
+  "id": "pricing-tool-node",
+  "name": "Pricing Data Tool",
+  "type": "@n8n/n8n-nodes-langchain.toolGoogleSheets",
+  "typeVersion": 1,
+  "position": [-1040, 480],
+  "credentials": {
+    "googleSheetsOAuth2Api": {
+      "id": "NsDs55yNufsJezQc",
+      "name": "Google Sheets account"
+    }
+  }
+}
+

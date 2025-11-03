@@ -1,0 +1,307 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "text-msg-fixed",
+              "name": "messageText",
+              "value": "={{ $json.messages[0].text.body }}",
+              "type": "string"
+            },
+            {
+              "id": "from-number-fixed",
+              "name": "from",
+              "value": "={{ $json.messages[0].from }}",
+              "type": "string"
+            },
+            {
+              "id": "customer-name-fixed",
+              "name": "customerName",
+              "value": "={{ $json.contacts[0].profile.name }}",
+              "type": "string"
+            },
+            {
+              "id": "msg-id-fixed",
+              "name": "messageId",
+              "value": "={{ $json.messages[0].id }}",
+              "type": "string"
+            },
+            {
+              "id": "timestamp-fixed",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "phone-fixed",
+              "name": "phoneNumber",
+              "value": "={{ $json.contacts[0].wa_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fb6799bd-aebe-44c7-9538-cc779be31f76",
+      "name": "Extract Text2",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-1488, -64],
+      "notes": "Extracts text message data from WhatsApp webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "voice-text",
+              "name": "messageText",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "voice-from",
+              "name": "from",
+              "value": "={{ $('WhatsApp Trigger2').item.json.messages[0].from }}",
+              "type": "string"
+            },
+            {
+              "id": "voice-name",
+              "name": "customerName",
+              "value": "={{ $('WhatsApp Trigger2').item.json.contacts[0].profile.name }}",
+              "type": "string"
+            },
+            {
+              "id": "voice-id",
+              "name": "messageId",
+              "value": "={{ $('WhatsApp Trigger2').item.json.messages[0].id }}",
+              "type": "string"
+            },
+            {
+              "id": "voice-timestamp",
+              "name": "timestamp",
+              "value": "={{ $('WhatsApp Trigger2').item.json.messages[0].timestamp }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "77f66eeb-7e85-4a0c-ac5e-0dfca907dee9",
+      "name": "Extract Voice Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-1488, 128]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.item.json;\n\nconsole.log('Unify input received:', JSON.stringify(item, null, 2));\n\nif (!item || !item.messageText) {\n  console.log('ERROR: No messageText in input');\n  return [{ json: { error: 'No message data', sourcePath: 'none' } }];\n}\n\nconst unifiedItem = {\n  ...item,\n  sourcePath: item.sourcePath || (item.textFrom ? 'text' : 'voice'),\n  messageText: item.messageText.trim(),\n  hasValidMessage: true\n};\n\nconsole.log('Unified output:', JSON.stringify(unifiedItem, null, 2));\n\nreturn [{ json: unifiedItem }];"
+      },
+      "id": "b68eeeaf-0478-435a-a105-21b669288c76",
+      "name": "Unify Message Paths",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1264, 32],
+      "notes": "Merges text and voice paths into unified format"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.messageText }}",
+        "options": {
+          "systemMessage": "## PRICING TOOLS (Use Google Sheets for live pricing)\n\n**CRITICAL**: NEVER quote prices from memory. ALWAYS use the Google Sheets tool to get current pricing.\n\n**How to use pricing tool:**\n1. When customer asks about pricing, zones, or packages\n2. Use the Google Sheets tool to query the Pricing sheet\n3. Search by package_key, zone name, or visa_count\n4. Return actual pricing from the sheet\n\n---\n\nYou are Ahmed, a senior UAE business setup consultant. Communicate like a confident, warm professional who remembers context.\n\n## Memory Rules\n\n- NEVER repeat introduction if already introduced\n- Reference previous messages: \"Like I mentioned\", \"Building on what we discussed\"\n- Track stage: First contact → Discovery → Qualification → Recommendation\n- Stay consistent throughout conversation\n\n## Style\n\n- Brevity first: 2-3 sentences. Elaborate only if asked\n- Conversational: Use contractions, sound like texting a colleague\n- Empathetic: \"I get that\", \"Makes sense\", \"Totally understand\"\n- Name usage: Use {{ $json.customerName }} in opening only, skip in follow-ups\n- Emojis: Max 1-2 per message: 🇦🇪 💼 ✨ 📋 🏢\n- Max length: 150 words\n\n## Opening (FIRST MESSAGE ONLY)\n\n- Generic: \"Hello! Interested in setting up a business in the UAE?\"\n- Specific: Jump to answer with warmth\n- If name available: \"Hello {{ $json.customerName }}! Happy to help 🇦🇪\"\n\n## Discovery (Ask 1-2 at a time)\n\n1. Full Name & Location\n2. Business Type\n3. Target Market (UAE or international)\n4. Activity Details\n5. Ownership (sole/partners)\n6. Visas needed\n7. Office needs\n8. Budget\n9. Timeline\n10. Residence visa needed?\n11. Documentation ready?\n12. Banking assistance?\n\n## Recommendations\n\nAfter gathering requirements, use Google Sheets tool to:\n- Look up specific packages by zone\n- Find cheapest options for visa count\n- List available zones\n- Get current pricing\n\nPresent: \"Based on your needs, let me check current pricing...\" then use tool.\n\n## Objection Handling\n\n**\"Just researching\"**: \"That's fine! I can send a free proposal with options, costs, and process.\"\n\n**\"Too expensive\"**: Use Google Sheets to find cheapest option, then: \"I understand. Let me find the most affordable option for your visa needs.\"\n\n**\"I'll decide later\"**: \"No worries—we can reserve your company name today at no charge. Holds preferred name and locks pricing for 30 days.\"\n\n## Lead Markers (Will be stripped)\n\n**[BUSINESS_ACTIVITY: text]**\n**[TARGET_MARKET: Mainland/Free Zone/Both]**\n**[BUDGET: Under 15K/15-25K/25-30K/Above 30K]**\n**[VISAS: number]**\n**[TIMELINE: Immediate/1 Month/Exploring]**\n**[LEAD_QUALITY: HOT/WARM/COLD]**\n**[NEXT_ACTION: NURTURE/QUOTE/ESCALATE]**\n\n### Lead Quality\n\n**HOT**: Ready (Immediate/1 Month), budget confirmed, clear activity, docs ready\n**WARM**: Interested, 1-2 month timeline, budget identified, needs more info\n**COLD**: Exploring, no timeline, budget unclear, early research\n\n## Escalation → [ESCALATE_TO_HUMAN]\n\nEnd with this if:\n- Custom/complex structures\n- Budget >AED 50K or <AED 10K\n- Payment plans/financing\n- Legal/compliance questions\n- Industry-specific licensing (healthcare/education/finance)\n- Complex queries beyond pricing\n\nTemplate: \"This needs our senior consultant. Someone will reach out within 2 hours (9 AM-6 PM GST, Sun-Thu). [ESCALATE_TO_HUMAN]\"\n\n## Critical Rules\n\n1. Answer simply—elaborate if asked\n2. ALWAYS use Google Sheets tool for pricing—never quote from memory\n3. Sound human—real conversations\n4. Stay brief unless detail requested\n5. Remember context—don't repeat\n6. Be confident expert\n7. Always include markers (won't show customer)\n8. Ask 1-2 questions max at a time\n9. Provide actionable next steps\n\n## Closing\n\n\"Would you like me to prepare detailed quotation and document checklist? We can have trade license ready in 5-7 working days once documents submitted.\""
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [-1040, 32],
+      "id": "faef9749-f69f-4936-964f-8e34f7c7e2df",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [-1184, 240],
+      "id": "ea1efa37-7c18-42ca-b255-ff71fd3e5d34",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "GDBqlBJ6ZO62iibt",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.from }}",
+        "contextWindowLength": 20
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [-1024, 256],
+      "id": "2d5c111f-ece0-4dee-8dc6-bfa2627a470f",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ec4117fb-ecc4-4fc2-9d45-1d47c4416e7b",
+              "leftValue": "={{ $('WhatsApp Trigger2').item.json.messages[0].audio }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-688, 32],
+      "id": "7f82170c-76b0-42a5-9dc9-7e7ea1b75a7d",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "name": "Get UAE Business Pricing",
+        "description": "Search and retrieve pricing information from the UAE Business Setup pricing sheet. You can search by package name, zone name, visa count, or any pricing-related query.",
+        "documentId": {
+          "__rl": true,
+          "value": "1ZvPGep1ep2zLH6ze9zgTuXjy54oYb8SdXQMtq68mnvo",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Pricing",
+          "mode": "list"
+        },
+        "operation": "read"
+      },
+      "id": "4c9306aa-4693-480b-9a9b-40a43b3d72ea",
+      "name": "Google Sheets Tool",
+      "type": "@n8n/n8n-nodes-langchain.toolGoogleSheets",
+      "typeVersion": 1,
+      "position": [-1040, 480],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "NsDs55yNufsJezQc",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Extract Text2": {
+      "main": [
+        [
+          {
+            "node": "Unify Message Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Voice Data": {
+      "main": [
+        [
+          {
+            "node": "Unify Message Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unify Message Paths": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [],
+        []
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "uae-business-chatbot-google-sheets-tool-fixed"
+  }
+}
+
