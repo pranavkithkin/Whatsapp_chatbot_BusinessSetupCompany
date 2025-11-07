@@ -2,6 +2,83 @@
   "nodes": [
     {
       "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "has-text-fixed",
+                    "leftValue": "={{ $json.messages[0].text.body }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Text"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "has-voice-fixed",
+                    "leftValue": "={{ $json.messages[0].audio.sha256 }}",
+                    "rightValue": "voice",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "has-audio-fixed",
+                    "leftValue": "={{ $json.messages[0].audio.id }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists"
+                    }
+                  }
+                ],
+                "combinator": "or"
+              },
+              "renameOutput": true,
+              "outputKey": "Audio"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "ea9fb424-aef1-4b14-ab96-8dd25e064c69",
+      "name": "Message Router2",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -1440,
+        1168
+      ],
+      "notes": "Routes incoming messages to text or audio processing paths"
+    },
+    {
+      "parameters": {
         "assignments": {
           "assignments": [
             {
@@ -44,12 +121,38 @@
         },
         "options": {}
       },
-      "id": "fb6799bd-aebe-44c7-9538-cc779be31f76",
+      "id": "25ff03f0-f592-411c-8a6f-e2bf6ca93c4c",
       "name": "Extract Text2",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [-1488, -64],
+      "position": [
+        -320,
+        1088
+      ],
       "notes": "Extracts text message data from WhatsApp webhook"
+    },
+    {
+      "parameters": {
+        "resource": "media",
+        "operation": "mediaUrlGet",
+        "mediaGetId": "={{ $json.messages[0].audio.id }}"
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -1216,
+        1280
+      ],
+      "id": "87340c3c-4a93-4726-8b7a-e292cee7f770",
+      "name": "Download media2",
+      "webhookId": "d41be550-2acd-47b3-97da-72c4d5c64292",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "5MTLOL9IllZheQ3v",
+          "name": "BSETUP PRODUCTION"
+        }
+      },
+      "notes": "Gets media URL for audio messages"
     },
     {
       "parameters": {
@@ -64,77 +167,287 @@
             {
               "id": "voice-from",
               "name": "from",
-              "value": "={{ $('WhatsApp Trigger2').item.json.messages[0].from }}",
+              "value": "={{ $('Should Skip?').item.json.messages[0].from }}",
               "type": "string"
             },
             {
               "id": "voice-name",
               "name": "customerName",
-              "value": "={{ $('WhatsApp Trigger2').item.json.contacts[0].profile.name }}",
+              "value": "={{ $('Normalize Webhook Data').item.json.contacts[0].profile.name }}",
               "type": "string"
             },
             {
               "id": "voice-id",
               "name": "messageId",
-              "value": "={{ $('WhatsApp Trigger2').item.json.messages[0].id }}",
+              "value": "={{ $('Should Skip?').item.json.messages[0].id }}",
               "type": "string"
             },
             {
               "id": "voice-timestamp",
               "name": "timestamp",
-              "value": "={{ $('WhatsApp Trigger2').item.json.messages[0].timestamp }}",
+              "value": "={{ $('Normalize Webhook Data').item.json.messages[0].timestamp }}",
               "type": "string"
             }
           ]
         },
         "options": {}
       },
-      "id": "77f66eeb-7e85-4a0c-ac5e-0dfca907dee9",
+      "id": "d2dfea1e-889a-4e18-b5d7-560742c04e5d",
       "name": "Extract Voice Data",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [-1488, 128]
+      "position": [
+        -320,
+        1280
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.item.json;\n\nconsole.log('Unify input received:', JSON.stringify(item, null, 2));\n\nif (!item || !item.messageText) {\n  console.log('ERROR: No messageText in input');\n  return [{ json: { error: 'No message data', sourcePath: 'none' } }];\n}\n\nconst unifiedItem = {\n  ...item,\n  sourcePath: item.sourcePath || (item.textFrom ? 'text' : 'voice'),\n  messageText: item.messageText.trim(),\n  hasValidMessage: true\n};\n\nconsole.log('Unified output:', JSON.stringify(unifiedItem, null, 2));\n\nreturn [{ json: unifiedItem }];"
+        "jsCode": "const input = $input.item.json;\nconst now = new Date();\nlet followUpDate = '';\nlet status = 'New';\n\nif (input.leadQuality === 'HOT') {\n  const followUp = new Date(now.getTime() + (4 * 60 * 60 * 1000));\n  followUpDate = followUp.toISOString();\n  status = 'Hot - Immediate Action';\n} else if (input.leadQuality === 'WARM') {\n  const followUp = new Date(now.getTime() + (24 * 60 * 60 * 1000));\n  followUpDate = followUp.toISOString();\n  status = 'Warm - Nurturing';\n} else {\n  const followUp = new Date(now.getTime() + (48 * 60 * 60 * 1000));\n  followUpDate = followUp.toISOString();\n  status = 'Cold - Long-term';\n}\n\nconst leadData = {\n  'Timestamp': input.timestamp || now.toISOString(),\n  'Full Name': input.customerName || 'Unknown',\n  'Phone Number': input.phoneNumber || '',\n  'Business Activity': input.businessActivity || 'Not specified',\n  'Target Market': input.targetMarket || 'Not specified',\n  'Budget Range': input.budget || 'Not specified',\n  'Visa Needs': input.visas || 'Not specified',\n  'Timeline': input.timeline || 'Not specified',\n  'Customer Message': input.messageText || '',\n  'AI Response': input.aiResponse || '',\n  'Lead Quality': input.leadQuality || 'COLD',\n  'Status': status,\n  'Follow Up Date': followUpDate,\n  'Next Action': input.nextAction || 'NURTURE',\n  'Needs Escalation': input.needsEscalation ? 'Yes' : 'No',\n  'Response Source': input.responseSource || 'ai-agent',\n  'Message ID': input.messageId || ''\n};\n\nreturn { json: leadData };"
       },
-      "id": "b68eeeaf-0478-435a-a105-21b669288c76",
-      "name": "Unify Message Paths",
+      "id": "3c18a8e8-cd75-4ed9-a6a4-3d2b801bfbf3",
+      "name": "Prepare Lead Data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-1264, 32],
-      "notes": "Merges text and voice paths into unified format"
+      "position": [
+        928,
+        1424
+      ],
+      "notes": "Formats extracted business setup data for Google Sheets"
     },
     {
       "parameters": {
-        "promptType": "define",
-        "text": "={{ $json.messageText }}",
-        "options": {
-          "systemMessage": "## PRICING DATA ACCESS\n\n**You have access to a Google Sheets tool** that contains live pricing data for UAE business setup packages.\n\n**How to use it:**\n- When customer asks about pricing, zones, packages, or costs\n- Simply query the Google Sheets tool naturally\n- Examples:\n  • \"Show me packages with 1 visa\"\n  • \"What are the IFZA packages?\"\n  • \"Find the cheapest option for 2 visas\"\n  • \"List all free zones\"\n\n**CRITICAL RULES:**\n- NEVER quote prices from memory\n- ALWAYS use the Google Sheets tool for pricing questions\n- If the tool returns data, present it clearly to the customer\n- If tool fails, say: \"Let me check with my team on current pricing\"\n\n---\n\nYou are Ahmed, a senior UAE business setup consultant. Communicate like a confident, warm professional who remembers context.\n\n## Memory Rules\n\n- NEVER repeat introduction if already introduced\n- Reference previous messages: \"Like I mentioned\", \"Building on what we discussed\"\n- Track stage: First contact → Discovery → Qualification → Recommendation\n- Stay consistent throughout conversation\n\n## Style\n\n- Brevity first: 2-3 sentences. Elaborate only if asked\n- Conversational: Use contractions, sound like texting a colleague\n- Empathetic: \"I get that\", \"Makes sense\", \"Totally understand\"\n- Name usage: Use {{ $json.customerName }} in opening only, skip in follow-ups\n- Emojis: Max 1-2 per message: 🇦🇪 💼 ✨ 📋 🏢\n- Max length: 150 words\n\n## Opening (FIRST MESSAGE ONLY)\n\n- Generic: \"Hello! Interested in setting up a business in the UAE?\"\n- Specific: Jump to answer with warmth\n- If name available: \"Hello {{ $json.customerName }}! Happy to help 🇦🇪\"\n\n## Discovery (Ask 1-2 at a time)\n\n1. Full Name & Location\n2. Business Type\n3. Target Market (UAE or international)\n4. Activity Details\n5. Ownership (sole/partners)\n6. Visas needed\n7. Office needs\n8. Budget\n9. Timeline\n10. Residence visa needed?\n11. Documentation ready?\n12. Banking assistance?\n\n## Recommendations\n\nAfter gathering visa needs and activity:\n- Use Google Sheets tool to find relevant packages\n- Present pricing clearly: \"The [package] is AED [price] and includes...\"\n- Highlight value: setup time, inclusions, visa count\n\n## Objection Handling\n\n**\"Just researching\"**: \"That's fine! I can send a free proposal with options, costs, and process.\"\n\n**\"Too expensive\"**: Use Google Sheets to find cheaper options: \"Let me find more affordable options for you...\"\n\n**\"I'll decide later\"**: \"No worries—we can reserve your company name today at no charge. Holds preferred name and locks pricing for 30 days.\"\n\n## Lead Markers (Will be stripped)\n\n**[BUSINESS_ACTIVITY: text]**\n**[TARGET_MARKET: Mainland/Free Zone/Both]**\n**[BUDGET: Under 15K/15-25K/25-30K/Above 30K]**\n**[VISAS: number]**\n**[TIMELINE: Immediate/1 Month/Exploring]**\n**[LEAD_QUALITY: HOT/WARM/COLD]**\n**[NEXT_ACTION: NURTURE/QUOTE/ESCALATE]**\n\n### Lead Quality\n\n**HOT**: Ready (Immediate/1 Month), budget confirmed, clear activity, docs ready\n**WARM**: Interested, 1-2 month timeline, budget identified, needs more info\n**COLD**: Exploring, no timeline, budget unclear, early research\n\n## Escalation → [ESCALATE_TO_HUMAN]\n\nEnd with this if:\n- Custom/complex structures\n- Budget >AED 50K or <AED 10K\n- Payment plans/financing\n- Legal/compliance questions\n- Industry-specific licensing (healthcare/education/finance)\n- Complex queries beyond standard packages\n\nTemplate: \"This needs our senior consultant. Someone will reach out within 2 hours (9 AM-6 PM GST, Sun-Thu). [ESCALATE_TO_HUMAN]\"\n\n## Critical Rules\n\n1. Answer simply—elaborate if asked\n2. ALWAYS use Google Sheets tool for pricing—never quote from memory\n3. Sound human—real conversations\n4. Stay brief unless detail requested\n5. Remember context—don't repeat\n6. Be confident expert\n7. Always include markers (won't show customer)\n8. Ask 1-2 questions max at a time\n9. Provide actionable next steps\n\n## Closing\n\n\"Would you like me to prepare detailed quotation and document checklist? We can have trade license ready in 5-7 working days once documents submitted.\""
+        "operation": "send",
+        "phoneNumberId": "={{ $('Message Router2').item.json.metadata.phone_number_id }}",
+        "recipientPhoneNumber": "={{ $('Unify Message Paths').item.json.from }}",
+        "textBody": "={{ $('Parse AI Response').item.json.aiResponse }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        1088,
+        1312
+      ],
+      "id": "527504ee-9619-441d-a663-e36b483d71a8",
+      "name": "Send Response",
+      "webhookId": "de32c8eb-eafd-40c5-85d5-ade6f9abcefa",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "5MTLOL9IllZheQ3v",
+          "name": "BSETUP PRODUCTION"
         }
       },
-      "type": "@n8n/n8n-nodes-langchain.agent",
-      "typeVersion": 2.2,
-      "position": [-1040, 32],
-      "id": "faef9749-f69f-4936-964f-8e34f7c7e2df",
-      "name": "AI Agent"
+      "notes": "Sends cleaned AI response to customer"
     },
     {
       "parameters": {
-        "model": {
+        "documentId": {
           "__rl": true,
-          "value": "gpt-4o",
+          "value": "1tBmut86wQXS22bzvXny5DnerXxKWozqr_KbQEvBE8rQ",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
           "mode": "list",
-          "cachedResultName": "gpt-4o"
+          "cachedResultName": "Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tBmut86wQXS22bzvXny5DnerXxKWozqr_KbQEvBE8rQ/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "full_name"
+            },
+            {},
+            {}
+          ]
         },
         "options": {}
       },
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "id": "6a163ae2-c97d-4603-96a0-18c39a388211",
+      "name": "Log Lead",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1312,
+        1424
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "hfZ9DcV8NAxi8pBD",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "Logs formatted lead data to Google Sheets"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "hot-check",
+              "leftValue": "={{ $('Parse AI Response').item.json.leadQuality }}",
+              "rightValue": "HOT",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "512fd924-5d46-4f46-83b3-b89989c847e9",
+      "name": "Is HOT Lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1536,
+        1424
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "={{ $env.SLACK_CHANNEL_HOT_LEADS }}",
+          "mode": "id"
+        },
+        "messageType": "block",
+        "blocksUi": {
+          "blocksValues": [
+            {
+              "type": "header",
+              "text": "🔥 HOT LEAD - UAE Business Setup"
+            },
+            {
+              "type": "section",
+              "text": {
+                "text": "=*Customer:* {{ $('Parse AI Response').item.json.customerName }}\\n*Phone:* +{{ $('Parse AI Response').item.json.phoneNumber }}\\n*Lead Quality:* HOT 🔥",
+                "textType": "mrkdwn"
+              }
+            },
+            {
+              "type": "section",
+              "text": {
+                "text": "=*Business Details:*\\n• Activity: {{ $('Parse AI Response').item.json.businessActivity || 'Not specified' }}\\n• Market: {{ $('Parse AI Response').item.json.targetMarket || 'Not specified' }}\\n• Budget: {{ $('Parse AI Response').item.json.budget || 'Not specified' }}\\n• Visas: {{ $('Parse AI Response').item.json.visas || 'Not specified' }}\\n• Timeline: {{ $('Parse AI Response').item.json.timeline || 'Not specified' }}",
+                "textType": "mrkdwn"
+              }
+            },
+            {
+              "type": "section",
+              "text": {
+                "text": "=*Customer Message:*\\n{{ $('Parse AI Response').item.json.messageText }}",
+                "textType": "mrkdwn"
+              }
+            },
+            {
+              "type": "section",
+              "text": {
+                "text": "=*Bot Response:*\\n{{ $('Parse AI Response').item.json.aiResponse }}",
+                "textType": "mrkdwn"
+              }
+            },
+            {
+              "type": "actions",
+              "actionElements": [
+                {
+                  "type": "button",
+                  "text": "View in Sheets",
+                  "url": "={{ $env.GOOGLE_SHEETS_LEADS_URL }}",
+                  "actionId": "view_lead"
+                }
+              ]
+            }
+          ]
+        },
+        "otherOptions": {}
+      },
+      "id": "83d707b2-368c-4a75-a5b5-a138bb796069",
+      "name": "Notify Team (HOT)",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        1760,
+        1536
+      ],
+      "webhookId": "25ab127e-fe4c-4eb9-9415-e22923b7ecb2"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 48
+            }
+          ]
+        }
+      },
+      "id": "e57c0382-1a23-4cec-a5a6-06ce19c9a526",
+      "name": "Follow-Up Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-1184, 240],
-      "id": "ea1efa37-7c18-42ca-b255-ff71fd3e5d34",
-      "name": "OpenAI Chat Model",
+      "position": [
+        -1888,
+        1504
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "documentId": "={{ $env.GOOGLE_SHEETS_LEADS_ID }}",
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "id": "5d466ac8-2aa5-4217-8032-7054f8dce258",
+      "name": "Read Leads",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -1664,
+        1504
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "hfZ9DcV8NAxi8pBD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst now = new Date();\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n  if (data['Timestamp'] === 'Timestamp') continue;\n  \n  const leadQuality = data['Lead Quality'];\n  const status = data['Status'];\n  const followUpDate = data['Follow Up Date'];\n  \n  if ((leadQuality === 'HOT' || leadQuality === 'WARM') && \n      (status === 'New' || status.includes('Nurturing') || status.includes('Hot')) &&\n      followUpDate) {\n    const followUpTime = new Date(followUpDate);\n    if (followUpTime <= now) {\n      results.push({\n        json: {\n          customerName: data['Full Name'] || data['Customer Name'],\n          phoneNumber: data['Phone Number'],\n          lastMessage: data['Customer Message'] || data['Message'],\n          businessActivity: data['Business Activity'],\n          leadQuality: leadQuality,\n          from: data['Phone Number'] + '@s.whatsapp.net'\n        }\n      });\n    }\n  }\n}\n\nreturn results;"
+      },
+      "id": "95296d86-3bab-4acb-8a67-c26ec7062312",
+      "name": "Filter Follow-Up Leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1440,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "text"
+      },
+      "id": "2329bfba-95c3-427d-bec7-bc8e081e742f",
+      "name": "Generate Follow-Up",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.7,
+      "position": [
+        -1216,
+        1504
+      ],
       "credentials": {
         "openAiApi": {
           "id": "GDBqlBJ6ZO62iibt",
@@ -144,15 +457,204 @@
     },
     {
       "parameters": {
-        "sessionIdType": "customKey",
-        "sessionKey": "={{ $json.from }}",
-        "contextWindowLength": 20
+        "operation": "send",
+        "phoneNumberId": "762171880324039",
+        "recipientPhoneNumber": "={{ $json.phoneNumber }}",
+        "textBody": "={{ $('Generate Follow-Up').item.json.message.content }}",
+        "additionalFields": {}
       },
-      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
-      "typeVersion": 1.3,
-      "position": [-1024, 256],
-      "id": "2d5c111f-ece0-4dee-8dc6-bfa2627a470f",
-      "name": "Simple Memory"
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -992,
+        1504
+      ],
+      "id": "65f38ed6-b5b9-4fca-ae0b-884e13e2eb74",
+      "name": "Send Follow-Up",
+      "webhookId": "e908b1ee-9b6f-4a5a-8c15-e84984a4d0b7",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "5MTLOL9IllZheQ3v",
+          "name": "BSETUP PRODUCTION"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": "={{ $env.GOOGLE_SHEETS_LEADS_ID }}",
+        "sheetName": "Leads",
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED"
+        }
+      },
+      "id": "126a7d60-1178-4daf-ad13-1ac9f9496e17",
+      "name": "Update Lead Status",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -768,
+        1504
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "hfZ9DcV8NAxi8pBD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fdda86a5-d303-48b2-9e99-7ceb65da0272",
+              "name": "url",
+              "value": "={{ $json.url }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -992,
+        1280
+      ],
+      "id": "fb7f0397-429d-4f76-aaa8-6e92dfe948d0",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        928,
+        1296
+      ],
+      "id": "2ff9dca5-c20d-4702-bf68-b222a753d9a2",
+      "name": "Human Delay",
+      "webhookId": "delay-webhook"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Download media2').item.json.url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -768,
+        1280
+      ],
+      "id": "4706f036-c714-42ee-b457-79969d5f5ffe",
+      "name": "Download Audio",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 10,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "hZthMtCZTkhubI9r",
+          "name": "BSETUP PRODUCTION"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        -544,
+        1280
+      ],
+      "id": "fda41997-1b7e-4c9f-b899-6a521d53e5e7",
+      "name": "Transcribe a recording",
+      "credentials": {
+        "openAiApi": {
+          "id": "GDBqlBJ6ZO62iibt",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "for (const item of $input.all()) {\n  if (item.binary) {\n    const binaryPropertyNames = Object.keys(item.binary);\n    for (const propName of binaryPropertyNames) {\n      if (item.binary[propName].mimeType === 'audio/mp3') {\n        item.binary[propName].mimeType = 'audio/mpeg';\n      }\n    }\n  }\n}\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        992,
+        1040
+      ],
+      "id": "8bd3a04c-4ca6-4cb5-8518-06aec415c1c7",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Get row(s) in sheet in Google SheetsGet UAE Business Setup Pricing Data\n\nPurpose: Search and retrieve current pricing for UAE business setup packages.\n\nWhat you can search:\n- Package names (IFZA, DMCC, RAKEZ)\n- Number of visas (0, 1, 2 visas)\n- Free zone names\n- Price ranges\n\nWhen to use:\n- Customer asks about pricing\n- Customer wants package recommendations\n- Customer asks \"how much\" or \"what's the cost\"\n\nReturns: package_key, zone, visa_count, price_aed, description, setup_days, includes",
+        "documentId": {
+          "__rl": true,
+          "value": "1ZvPGep1ep2zLH6ze9zgTuXjy54oYb8SdXQMtq68mnvo",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 819898795,
+          "mode": "list",
+          "cachedResultName": "pricing",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ZvPGep1ep2zLH6ze9zgTuXjy54oYb8SdXQMtq68mnvo/edit#gid=819898795"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        336,
+        1472
+      ],
+      "id": "decd3e4c-9f80-49e6-9abc-73f3e7caff24",
+      "name": "get_uae_pricing",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "hfZ9DcV8NAxi8pBD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "model": "tts-1-hd",
+        "input": "={{ $json.output }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        736,
+        1088
+      ],
+      "id": "b166a9e7-77f0-4889-800f-4c5b935f8c7d",
+      "name": "Generate audio",
+      "credentials": {
+        "openAiApi": {
+          "id": "GDBqlBJ6ZO62iibt",
+          "name": "OpenAi account"
+        }
+      }
     },
     {
       "parameters": {
@@ -166,7 +668,7 @@
           "conditions": [
             {
               "id": "ec4117fb-ecc4-4fc2-9d45-1d47c4416e7b",
-              "leftValue": "={{ $('WhatsApp Trigger2').item.json.messages[0].audio }}",
+              "leftValue": "={{ $('Should Skip?').item.json.messages[0].audio }}",
               "rightValue": "",
               "operator": {
                 "type": "object",
@@ -181,46 +683,157 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [-688, 32],
-      "id": "7f82170c-76b0-42a5-9dc9-7e7ea1b75a7d",
+      "position": [
+        496,
+        1184
+      ],
+      "id": "e5e6b845-f1bb-418c-a80d-5c748d4f49c0",
       "name": "If"
     },
     {
       "parameters": {
-        "descriptionType": "manual",
-        "toolDescription": "Get UAE Business Setup Pricing Data\n\nPurpose: Search and retrieve current pricing for UAE business setup packages from the live pricing database.\n\nWhat you can search for:\n- Specific package names (e.g., \"IFZA\", \"DMCC\")\n- Number of visas (e.g., \"1 visa\", \"2 visas\")\n- Free zone names\n- Price ranges\n- Package features\n\nWhen to use:\n- Customer asks about pricing\n- Customer wants package recommendations\n- Customer compares zones or packages\n- Customer asks \"how much\" or \"what's the cost\"\n\nThe tool will return package details including: package_key, zone, visa_count, price_aed, description, setup_days, and what's included.",
-        "documentId": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.from }}",
+        "contextWindowLength": 20
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        160,
+        1408
+      ],
+      "id": "ddf5cdad-e11e-47ba-aaab-7d3bf6d0833a",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "model": {
           "__rl": true,
-          "mode": "id",
-          "value": "1ZvPGep1ep2zLH6ze9zgTuXjy54oYb8SdXQMtq68mnvo"
-        },
-        "sheetName": {
-          "__rl": true,
+          "value": "gpt-4.1-mini",
           "mode": "list",
-          "value": "Pricing",
-          "cachedResultName": "Pricing"
+          "cachedResultName": "gpt-4.1-mini"
         },
         "options": {}
       },
-      "id": "4c9306aa-4693-480b-9a9b-40a43b3d72ea",
-      "name": "Pricing Data Tool",
-      "type": "@n8n/n8n-nodes-langchain.toolGoogleSheets",
-      "typeVersion": 1,
-      "position": [-1040, 480],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -16,
+        1392
+      ],
+      "id": "7e230bcd-ca2b-4669-b206-301454812d86",
+      "name": "OpenAI Chat Model",
       "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "NsDs55yNufsJezQc",
-          "name": "Google Sheets account"
+        "openAiApi": {
+          "id": "GDBqlBJ6ZO62iibt",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.messageText }}",
+        "options": {
+          "systemMessage": "=## PRICING DATA ACCESS\n\n**You have access to a Google Sheets tool** called `get_uae_pricing` that contains live pricing data.\n\n**How to use it:**\n- When customer asks about pricing, zones, packages, or costs\n- Simply query the tool naturally\n- Examples:\n  • \"Show me packages with 1 visa\"\n  • \"What are the IFZA packages?\"\n  • \"Find the cheapest option for 2 visas\"\n  • \"List all free zones\"\n\n**CRITICAL RULES:**\n- NEVER quote prices from memory\n- ALWAYS use the get_uae_pricing tool for pricing questions\n- If the tool returns data, present it clearly to the customer\n- If tool fails, say: \"Let me check with my team on current pricing\"\n\n---\n\nYou are Ahmed, a senior UAE business setup consultant. Communicate like a confident, warm professional who remembers context.\n\n## Memory Rules\n\n- NEVER repeat introduction if already introduced\n- Reference previous messages: \"Like I mentioned\", \"Building on what we discussed\"\n- Track stage: First contact → Discovery → Qualification → Recommendation\n- Stay consistent throughout conversation\n\n## Style\n\n- Brevity first: 2-3 sentences. Elaborate only if asked\n- Conversational: Use contractions, sound like texting a colleague\n- Empathetic: \"I get that\", \"Makes sense\", \"Totally understand\"\n- Name usage: Use {{ $json.customerName }} in opening only, skip in follow-ups\n- Emojis: Max 1-2 per message: 🇦🇪 💼 ✨ 📋 🏢\n- Max length: 150 words\n\n## Opening (FIRST MESSAGE ONLY)\n\n- Generic: \"Hello! Interested in setting up a business in the UAE?\"\n- Specific: Jump to answer with warmth\n- If name available: \"Hello {{ $json.customerName }}! Happy to help 🇦🇪\"\n\n## Discovery (Ask 1-2 at a time)\n\n1. Full Name & Location\n2. Business Type\n3. Target Market (UAE or international)\n4. Activity Details\n5. Ownership (sole/partners)\n6. Visas needed\n7. Office needs\n8. Budget\n9. Timeline\n10. Residence visa needed?\n11. Documentation ready?\n12. Banking assistance?\n\n## Recommendations\n\nAfter gathering visa needs and activity:\n- Use get_uae_pricing tool to find relevant packages\n- Present pricing clearly: \"The [package] is AED [price] and includes...\"\n- Highlight value: setup time, inclusions, visa count\n\n## Objection Handling\n\n**\"Just researching\"**: \"That's fine! I can send a free proposal with options, costs, and process.\"\n\n**\"Too expensive\"**: Use get_uae_pricing to find cheaper options: \"Let me find more affordable options for you...\"\n\n**\"I'll decide later\"**: \"No worries—we can reserve your company name today at no charge. Holds preferred name and locks pricing for 30 days.\"\n\n## Lead Markers (Will be stripped)\n\n**[BUSINESS_ACTIVITY: text]**\n**[TARGET_MARKET: Mainland/Free Zone/Both]**\n**[BUDGET: Under 15K/15-25K/25-30K/Above 30K]**\n**[VISAS: number]**\n**[TIMELINE: Immediate/1 Month/Exploring]**\n**[LEAD_QUALITY: HOT/WARM/COLD]**\n**[NEXT_ACTION: NURTURE/QUOTE/ESCALATE]**\n\n### Lead Quality\n\n**HOT**: Ready (Immediate/1 Month), budget confirmed, clear activity, docs ready\n**WARM**: Interested, 1-2 month timeline, budget identified, needs more info\n**COLD**: Exploring, no timeline, budget unclear, early research\n\n## Escalation → [ESCALATE_TO_HUMAN]\n\nEnd with this if:\n- Custom/complex structures\n- Budget >AED 50K or <AED 10K\n- Payment plans/financing\n- Legal/compliance questions\n- Industry-specific licensing (healthcare/education/finance)\n- Complex queries beyond standard packages\n\nSample Template: \"This needs our senior consultant. Someone will reach out within 2 hours (9 AM-6 PM GST, Sun-Thu). [ESCALATE_TO_HUMAN]\"\n\n## Critical Rules\n\n1. Answer simply—elaborate if asked\n2. ALWAYS use get_uae_pricing tool for pricing—never quote from memory\n3. Sound human—real conversations\n4. Stay brief unless detail requested\n5. Remember context—don't repeat\n6. Be confident expert\n7. Always include markers (won't show customer)\n8. Ask 1-2 questions max at a time\n9. Provide actionable next steps\n\n## Closing\n\n\"Would you like me to prepare detailed quotation and document checklist? We can have trade license ready in 5-7 working days once documents submitted.\""
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        144,
+        1184
+      ],
+      "id": "acc8b719-417d-4f00-8040-a2d4b8831d7a",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiInput = $input.item.json;\nconsole.log('Parse AI input:', JSON.stringify(aiInput, null, 2));\n\nlet aiResponse = '';\nif (aiInput.output) {\n  aiResponse = aiInput.output;\n} else if (aiInput.text) {\n  aiResponse = aiInput.text;\n} else if (aiInput.message && aiInput.message.content) {\n  aiResponse = aiInput.message.content;\n} else if (aiInput.content) {\n  aiResponse = aiInput.content;\n} else {\n  console.log('WARNING: No AI response found');\n  aiResponse = 'No AI response available';\n}\n\nconst lines = aiResponse.split('\\n');\nlet responseText = '';\nlet leadQuality = 'COLD';\nlet nextAction = 'NURTURE';\nlet needsEscalation = false;\nlet businessActivity = '';\nlet targetMarket = '';\nlet budget = '';\nlet visas = '';\nlet timeline = '';\n\nfor (const line of lines) {\n  if (line.includes('[LEAD_QUALITY:')) {\n    const match = line.match(/\\[LEAD_QUALITY:\\s*(HOT|WARM|COLD)\\]/i);\n    if (match) leadQuality = match[1].toUpperCase();\n  } else if (line.includes('[NEXT_ACTION:')) {\n    const match = line.match(/\\[NEXT_ACTION:\\s*(\\w+)\\]/i);\n    if (match) nextAction = match[1];\n  } else if (line.includes('[ESCALATE_TO_HUMAN]')) {\n    needsEscalation = true;\n  } else if (line.includes('[BUSINESS_ACTIVITY:')) {\n    const match = line.match(/\\[BUSINESS_ACTIVITY:\\s*([^\\]]+)\\]/i);\n    if (match) businessActivity = match[1].trim();\n  } else if (line.includes('[TARGET_MARKET:')) {\n    const match = line.match(/\\[TARGET_MARKET:\\s*(Mainland|Free Zone|Both)\\]/i);\n    if (match) targetMarket = match[1];\n  } else if (line.includes('[BUDGET:')) {\n    const match = line.match(/\\[BUDGET:\\s*([^\\]]+)\\]/i);\n    if (match) budget = match[1].trim();\n  } else if (line.includes('[VISAS:')) {\n    const match = line.match(/\\[VISAS:\\s*(\\d+)\\]/i);\n    if (match) visas = match[1];\n  } else if (line.includes('[TIMELINE:')) {\n    const match = line.match(/\\[TIMELINE:\\s*(Immediate|1 Month|Exploring)\\]/i);\n    if (match) timeline = match[1];\n  } else if (!line.startsWith('[')) {\n    responseText += line + '\\n';\n  }\n}\n\nresponseText = responseText.trim();\n\nconst unifyData = $('Unify Message Paths').item.json;\n\nconst output = {\n  from: unifyData.from || aiInput.from || 'unknown',\n  customerName: unifyData.customerName || aiInput.customerName || 'Customer',\n  messageId: unifyData.messageId || aiInput.messageId || 'unknown',\n  messageText: unifyData.messageText || aiInput.messageText || 'unknown',\n  timestamp: unifyData.timestamp || aiInput.timestamp || $now.toISO(),\n  phoneNumber: (unifyData.from || aiInput.from || '').replace('@s.whatsapp.net', ''),\n  aiResponse: responseText,\n  leadQuality: leadQuality,\n  nextAction: nextAction,\n  needsEscalation: needsEscalation,\n  businessActivity: businessActivity,\n  targetMarket: targetMarket,\n  budget: budget,\n  visas: visas,\n  timeline: timeline,\n  fromCache: false,\n  responseSource: 'ai-agent',\n  cacheKey: null,\n  needsFollowUp: ['HOT', 'WARM'].includes(leadQuality)\n};\n\nconsole.log('Parse AI output:', JSON.stringify(output, null, 2));\n\nreturn { json: output };"
+      },
+      "id": "85c33b5f-1017-4df0-b5de-00f3563d9534",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        736,
+        1296
+      ],
+      "notes": "Extracts AI response, business setup markers, strips internal tags"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.item.json;\n\nconsole.log('Unify input received:', JSON.stringify(item, null, 2));\n\nif (!item || !item.messageText) {\n  console.log('ERROR: No messageText in input');\n  return [{ json: { error: 'No message data', sourcePath: 'none' } }];\n}\n\nconst unifiedItem = {\n  ...item,\n  sourcePath: item.sourcePath || (item.textFrom ? 'text' : 'voice'),\n  messageText: item.messageText.trim(),\n  hasValidMessage: true\n};\n\nconsole.log('Unified output:', JSON.stringify(unifiedItem, null, 2));\n\nreturn [{ json: unifiedItem }];"
+      },
+      "id": "433f8688-cd67-40c6-a6fc-593b6d4a36a2",
+      "name": "Unify Message Paths",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -96,
+        1184
+      ],
+      "notes": "Merges text and voice paths into unified format"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {}
+      },
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1760,
+        1184
+      ],
+      "id": "56a2638f-5e64-4a2c-9d6c-f6aa0cbb3a1e",
+      "name": "WhatsApp Trigger2",
+      "webhookId": "789162ca-1693-4d00-8c8e-7c6a5dbe0e85",
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "id": "GpZ4otRfREolmiAS",
+          "name": "BSETUP TESTING"
         }
       }
     }
   ],
   "connections": {
+    "Message Router2": {
+      "main": [
+        [
+          {
+            "node": "Extract Text2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Download media2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Extract Text2": {
       "main": [
         [
           {
             "node": "Unify Message Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download media2": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
             "type": "main",
             "index": 0
           }
@@ -238,23 +851,178 @@
         ]
       ]
     },
-    "Unify Message Paths": {
+    "Prepare Lead Data": {
       "main": [
         [
           {
-            "node": "AI Agent",
+            "node": "Log Lead",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "AI Agent": {
+    "Log Lead": {
       "main": [
         [
           {
-            "node": "If",
+            "node": "Is HOT Lead?",
             "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Follow-Up Schedule": {
+      "main": [
+        [
+          {
+            "node": "Read Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Leads": {
+      "main": [
+        [
+          {
+            "node": "Filter Follow-Up Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Follow-Up Leads": {
+      "main": [
+        [
+          {
+            "node": "Generate Follow-Up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Follow-Up": {
+      "main": [
+        [
+          {
+            "node": "Send Follow-Up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Follow-Up": {
+      "main": [
+        [
+          {
+            "node": "Update Lead Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Download Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Human Delay": {
+      "main": [
+        [
+          {
+            "node": "Send Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Audio": {
+      "main": [
+        [
+          {
+            "node": "Transcribe a recording",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe a recording": {
+      "main": [
+        [
+          {
+            "node": "Extract Voice Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        []
+      ]
+    },
+    "get_uae_pricing": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate audio": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Generate audio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
             "index": 0
           }
         ]
@@ -271,38 +1039,59 @@
         ]
       ]
     },
-    "Simple Memory": {
-      "ai_memory": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "ai_languageModel",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Pricing Data Tool": {
-      "ai_tool": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "ai_tool",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "If": {
+    "AI Agent": {
       "main": [
-        [],
-        []
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Human Delay",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Lead Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unify Message Paths": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp Trigger2": {
+      "main": [
+        [
+          {
+            "node": "Message Router2",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
   "pinData": {},
   "meta": {
-    "instanceId": "uae-business-setup-final-google-sheets-tool"
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a4b38727ba90b835333482770c4214c346550804c41a3a21391b277993132826"
   }
 }
-

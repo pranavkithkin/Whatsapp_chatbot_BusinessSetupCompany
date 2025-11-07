@@ -1,0 +1,1228 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-production",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-production-node",
+      "name": "WhatsApp Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -3600,
+        1072
+      ],
+      "webhookId": "whatsapp-production-webhook",
+      "notes": "Production webhook endpoint for Meta/Facebook WhatsApp Business API"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "verification-mode",
+              "leftValue": "={{ $json.query?.['hub.mode'] }}",
+              "rightValue": "subscribe",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "verification-token",
+              "leftValue": "={{ $json.query?.['hub.verify_token'] }}",
+              "rightValue": "={{ $env.WEBHOOK_VERIFY_TOKEN || 'BSETUP_PROD_2024_SecureToken' }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "verification-check-node",
+      "name": "Is Verification Request?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -3360,
+        1072
+      ],
+      "notes": "Checks if this is Meta's webhook verification request"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.query?.['hub.challenge'] }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/plain"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-verification-node",
+      "name": "Return Verification Challenge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -3360,
+        960
+      ],
+      "notes": "Returns the challenge token to Meta for webhook verification"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize webhook data from Meta to standard WhatsApp format\n// This allows the rest of the workflow to work without changes\n\ntry {\n  // Log incoming data for debugging\n  console.log('Webhook received:', JSON.stringify($json, null, 2));\n  \n  // Extract WhatsApp data from webhook structure\n  const body = $json.body || $json;\n  const entry = body.entry?.[0];\n  \n  if (!entry) {\n    console.log('No entry found in webhook data');\n    return { json: { error: 'No entry in webhook', rawData: $json } };\n  }\n  \n  const changes = entry.changes?.[0];\n  \n  if (!changes) {\n    console.log('No changes found in entry');\n    return { json: { error: 'No changes in entry', rawData: $json } };\n  }\n  \n  const value = changes.value;\n  \n  if (!value) {\n    console.log('No value found in changes');\n    return { json: { error: 'No value in changes', rawData: $json } };\n  }\n  \n  // Return in same format as WhatsApp Trigger node\n  const normalized = {\n    messages: value.messages || [],\n    contacts: value.contacts || [],\n    metadata: value.metadata || {}\n  };\n  \n  console.log('Normalized data:', JSON.stringify(normalized, null, 2));\n  \n  return { json: normalized };\n  \n} catch (error) {\n  console.error('Error normalizing webhook data:', error.message);\n  return { \n    json: { \n      error: 'Normalization failed', \n      message: error.message,\n      rawData: $json \n    } \n  };\n}"
+      },
+      "id": "normalize-webhook-data-node",
+      "name": "Normalize Webhook Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3136,
+        1168
+      ],
+      "notes": "Converts Meta webhook format to WhatsApp Trigger format for compatibility"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "has-text-fixed",
+                    "leftValue": "={{ $json.messages[0].text.body }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Text"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "has-voice-fixed",
+                    "leftValue": "={{ $json.messages[0].audio.sha256 }}",
+                    "rightValue": "voice",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "has-audio-fixed",
+                    "leftValue": "={{ $json.messages[0].audio.id }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists"
+                    }
+                  }
+                ],
+                "combinator": "or"
+              },
+              "renameOutput": true,
+              "outputKey": "Audio"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "0af0db39-0df6-47b3-8d41-87b29f34d935",
+      "name": "Message Router2",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -2912,
+        1056
+      ],
+      "notes": "Routes incoming messages to text or audio processing paths"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "text-msg-fixed",
+              "name": "messageText",
+              "value": "={{ $json.messages[0].text.body }}",
+              "type": "string"
+            },
+            {
+              "id": "from-number-fixed",
+              "name": "from",
+              "value": "={{ $json.messages[0].from }}",
+              "type": "string"
+            },
+            {
+              "id": "customer-name-fixed",
+              "name": "customerName",
+              "value": "={{ $json.contacts[0].profile.name }}",
+              "type": "string"
+            },
+            {
+              "id": "msg-id-fixed",
+              "name": "messageId",
+              "value": "={{ $json.messages[0].id }}",
+              "type": "string"
+            },
+            {
+              "id": "timestamp-fixed",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "phone-fixed",
+              "name": "phoneNumber",
+              "value": "={{ $json.contacts[0].wa_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "13636944-97ae-4f0b-b1ac-dd18c3b8c501",
+      "name": "Extract Text2",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1792,
+        976
+      ],
+      "notes": "Extracts text message data from WhatsApp webhook"
+    },
+    {
+      "parameters": {
+        "resource": "media",
+        "operation": "mediaUrlGet",
+        "mediaGetId": "={{ $json.messages[0].audio.id }}"
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -2688,
+        1168
+      ],
+      "id": "6afcec57-c9fb-43bc-a1f2-fe211c7e6b07",
+      "name": "Download media2",
+      "webhookId": "d41be550-2acd-47b3-97da-72c4d5c64292",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "iTmtjR70acDOY6lQ",
+          "name": "Business setup company"
+        }
+      },
+      "notes": "Gets media URL for audio messages"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "voice-text",
+              "name": "messageText",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "voice-from",
+              "name": "from",
+              "value": "={{ $('Normalize Webhook Data').item.json.messages[0].from }}",
+              "type": "string"
+            },
+            {
+              "id": "voice-name",
+              "name": "customerName",
+              "value": "={{ $('Normalize Webhook Data').item.json.contacts[0].profile.name }}",
+              "type": "string"
+            },
+            {
+              "id": "voice-id",
+              "name": "messageId",
+              "value": "={{ $('Normalize Webhook Data').item.json.messages[0].id }}",
+              "type": "string"
+            },
+            {
+              "id": "voice-timestamp",
+              "name": "timestamp",
+              "value": "={{ $('Normalize Webhook Data').item.json.messages[0].timestamp }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "58728222-957e-4d28-8ded-165935f1bac5",
+      "name": "Extract Voice Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1792,
+        1168
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.item.json;\nconst now = new Date();\nlet followUpDate = '';\nlet status = 'New';\n\nif (input.leadQuality === 'HOT') {\n  const followUp = new Date(now.getTime() + (4 * 60 * 60 * 1000));\n  followUpDate = followUp.toISOString();\n  status = 'Hot - Immediate Action';\n} else if (input.leadQuality === 'WARM') {\n  const followUp = new Date(now.getTime() + (24 * 60 * 60 * 1000));\n  followUpDate = followUp.toISOString();\n  status = 'Warm - Nurturing';\n} else {\n  const followUp = new Date(now.getTime() + (48 * 60 * 60 * 1000));\n  followUpDate = followUp.toISOString();\n  status = 'Cold - Long-term';\n}\n\nconst leadData = {\n  'Timestamp': input.timestamp || now.toISOString(),\n  'Full Name': input.customerName || 'Unknown',\n  'Phone Number': input.phoneNumber || '',\n  'Business Activity': input.businessActivity || 'Not specified',\n  'Target Market': input.targetMarket || 'Not specified',\n  'Budget Range': input.budget || 'Not specified',\n  'Visa Needs': input.visas || 'Not specified',\n  'Timeline': input.timeline || 'Not specified',\n  'Customer Message': input.messageText || '',\n  'AI Response': input.aiResponse || '',\n  'Lead Quality': input.leadQuality || 'COLD',\n  'Status': status,\n  'Follow Up Date': followUpDate,\n  'Next Action': input.nextAction || 'NURTURE',\n  'Needs Escalation': input.needsEscalation ? 'Yes' : 'No',\n  'Response Source': input.responseSource || 'ai-agent',\n  'Message ID': input.messageId || ''\n};\n\nreturn { json: leadData };"
+      },
+      "id": "5afdadcd-9492-4b47-9e3d-26cdda1e6972",
+      "name": "Prepare Lead Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -560,
+        1312
+      ],
+      "notes": "Formats extracted business setup data for Google Sheets"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "={{ $('Normalize Webhook Data').item.json.metadata.phone_number_id }}",
+        "recipientPhoneNumber": "={{ $('Unify Message Paths').item.json.from }}",
+        "textBody": "={{ $('Parse AI Response').item.json.aiResponse }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -400,
+        1200
+      ],
+      "id": "39455fba-dbf9-42d8-a83a-687947e148a1",
+      "name": "Send Response",
+      "webhookId": "de32c8eb-eafd-40c5-85d5-ade6f9abcefa",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "5MTLOL9IllZheQ3v",
+          "name": "BSETUP PRODUCTION"
+        }
+      },
+      "notes": "Sends cleaned AI response to customer"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1tBmut86wQXS22bzvXny5DnerXxKWozqr_KbQEvBE8rQ",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tBmut86wQXS22bzvXny5DnerXxKWozqr_KbQEvBE8rQ/edit#gid=0"
+        },
+        "options": {}
+      },
+      "id": "712508a8-bade-4772-82d0-07f24b84dc4f",
+      "name": "Log Lead",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -176,
+        1312
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "hfZ9DcV8NAxi8pBD",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "Logs formatted lead data to Google Sheets"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "hot-check",
+              "leftValue": "={{ $('Parse AI Response').item.json.leadQuality }}",
+              "rightValue": "HOT",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cf243716-29a1-4433-aca1-6cff9e446597",
+      "name": "Is HOT Lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        48,
+        1312
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "={{ $env.SLACK_CHANNEL_HOT_LEADS }}",
+          "mode": "id"
+        },
+        "messageType": "block",
+        "blocksUi": {
+          "blocksValues": [
+            {
+              "type": "header",
+              "text": "🔥 HOT LEAD - UAE Business Setup"
+            },
+            {
+              "type": "section",
+              "text": {
+                "text": "=*Customer:* {{ $('Parse AI Response').item.json.customerName }}\\n*Phone:* +{{ $('Parse AI Response').item.json.phoneNumber }}\\n*Lead Quality:* HOT 🔥",
+                "textType": "mrkdwn"
+              }
+            },
+            {
+              "type": "section",
+              "text": {
+                "text": "=*Business Details:*\\n• Activity: {{ $('Parse AI Response').item.json.businessActivity || 'Not specified' }}\\n• Market: {{ $('Parse AI Response').item.json.targetMarket || 'Not specified' }}\\n• Budget: {{ $('Parse AI Response').item.json.budget || 'Not specified' }}\\n• Visas: {{ $('Parse AI Response').item.json.visas || 'Not specified' }}\\n• Timeline: {{ $('Parse AI Response').item.json.timeline || 'Not specified' }}",
+                "textType": "mrkdwn"
+              }
+            },
+            {
+              "type": "section",
+              "text": {
+                "text": "=*Customer Message:*\\n{{ $('Parse AI Response').item.json.messageText }}",
+                "textType": "mrkdwn"
+              }
+            },
+            {
+              "type": "section",
+              "text": {
+                "text": "=*Bot Response:*\\n{{ $('Parse AI Response').item.json.aiResponse }}",
+                "textType": "mrkdwn"
+              }
+            },
+            {
+              "type": "actions",
+              "actionElements": [
+                {
+                  "type": "button",
+                  "text": "View in Sheets",
+                  "url": "={{ $env.GOOGLE_SHEETS_LEADS_URL }}",
+                  "actionId": "view_lead"
+                }
+              ]
+            }
+          ]
+        },
+        "otherOptions": {}
+      },
+      "id": "61409a60-011f-4f01-a9e6-cac43a6af759",
+      "name": "Notify Team (HOT)",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        272,
+        1424
+      ],
+      "webhookId": "25ab127e-fe4c-4eb9-9415-e22923b7ecb2"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 48
+            }
+          ]
+        }
+      },
+      "id": "c97e4bc9-454d-4ef3-a8bf-2292ba73b834",
+      "name": "Follow-Up Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -3360,
+        1392
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "documentId": "={{ $env.GOOGLE_SHEETS_LEADS_ID }}",
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "id": "d80a5374-e70c-4b0f-985e-4d6dcd8c00d3",
+      "name": "Read Leads",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -3136,
+        1392
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "hfZ9DcV8NAxi8pBD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst now = new Date();\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n  if (data['Timestamp'] === 'Timestamp') continue;\n  \n  const leadQuality = data['Lead Quality'];\n  const status = data['Status'];\n  const followUpDate = data['Follow Up Date'];\n  \n  if ((leadQuality === 'HOT' || leadQuality === 'WARM') && \n      (status === 'New' || status.includes('Nurturing') || status.includes('Hot')) &&\n      followUpDate) {\n    const followUpTime = new Date(followUpDate);\n    if (followUpTime <= now) {\n      results.push({\n        json: {\n          customerName: data['Full Name'] || data['Customer Name'],\n          phoneNumber: data['Phone Number'],\n          lastMessage: data['Customer Message'] || data['Message'],\n          businessActivity: data['Business Activity'],\n          leadQuality: leadQuality,\n          from: data['Phone Number'] + '@s.whatsapp.net'\n        }\n      });\n    }\n  }\n}\n\nreturn results;"
+      },
+      "id": "4de0446d-45b7-45ba-9e3e-9aab729362c1",
+      "name": "Filter Follow-Up Leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2912,
+        1392
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "text"
+      },
+      "id": "e531667d-33fe-4b13-b622-bf114cff71b0",
+      "name": "Generate Follow-Up",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.7,
+      "position": [
+        -2688,
+        1392
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "GDBqlBJ6ZO62iibt",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "762171880324039",
+        "recipientPhoneNumber": "={{ $json.phoneNumber }}",
+        "textBody": "={{ $('Generate Follow-Up').item.json.message.content }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -2464,
+        1392
+      ],
+      "id": "6bd825aa-400b-4772-beef-2282bb04e1bc",
+      "name": "Send Follow-Up",
+      "webhookId": "e908b1ee-9b6f-4a5a-8c15-e84984a4d0b7",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "5MTLOL9IllZheQ3v",
+          "name": "BSETUP PRODUCTION"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": "={{ $env.GOOGLE_SHEETS_LEADS_ID }}",
+        "sheetName": "Leads",
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED"
+        }
+      },
+      "id": "63cdcb1f-87f7-443a-bc9a-57ca1c123ece",
+      "name": "Update Lead Status",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -2240,
+        1392
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "hfZ9DcV8NAxi8pBD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2464,
+        1168
+      ],
+      "id": "83ca969d-907a-4174-9bee-2cd1d82ba9d1",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -560,
+        1184
+      ],
+      "id": "58fe3265-c3b3-4520-bdd2-cd119e801066",
+      "name": "Human Delay",
+      "webhookId": "delay-webhook"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Download media2').item.json.url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -2240,
+        1168
+      ],
+      "id": "1a7a1d70-d627-4261-ae6c-e95141a60e8a",
+      "name": "Download Audio",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 10,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "hZthMtCZTkhubI9r",
+          "name": "BSETUP PRODUCTION"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        -2016,
+        1168
+      ],
+      "id": "7cc11d1a-e5dc-471f-a907-e3fd43c28d31",
+      "name": "Transcribe a recording",
+      "credentials": {
+        "openAiApi": {
+          "id": "GDBqlBJ6ZO62iibt",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "for (const item of $input.all()) {\n  if (item.binary) {\n    const binaryPropertyNames = Object.keys(item.binary);\n    for (const propName of binaryPropertyNames) {\n      if (item.binary[propName].mimeType === 'audio/mp3') {\n        item.binary[propName].mimeType = 'audio/mpeg';\n      }\n    }\n  }\n}\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -496,
+        928
+      ],
+      "id": "92c54806-7485-40b4-8dc1-82521fe35d7f",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=762171880324039",
+        "recipientPhoneNumber": "={{ $('Unify Message Paths').item.json.from }}",
+        "messageType": "audio",
+        "mediaPath": "useMedian8n",
+        "additionalFields": {}
+      },
+      "id": "322a6208-21f2-4a33-8951-1328c2b165c7",
+      "name": "Send Voice Response",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -224,
+        880
+      ],
+      "webhookId": "cb0f0a73-a2dd-4e2a-abb0-903e6cb162b9",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "5MTLOL9IllZheQ3v",
+          "name": "BSETUP PRODUCTION"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Get row(s) in sheet in Google SheetsGet UAE Business Setup Pricing Data\n\nPurpose: Search and retrieve current pricing for UAE business setup packages.\n\nWhat you can search:\n- Package names (IFZA, DMCC, RAKEZ)\n- Number of visas (0, 1, 2 visas)\n- Free zone names\n- Price ranges\n\nWhen to use:\n- Customer asks about pricing\n- Customer wants package recommendations\n- Customer asks \"how much\" or \"what's the cost\"\n\nReturns: package_key, zone, visa_count, price_aed, description, setup_days, includes",
+        "documentId": {
+          "__rl": true,
+          "value": "1ZvPGep1ep2zLH6ze9zgTuXjy54oYb8SdXQMtq68mnvo",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 819898795,
+          "mode": "list",
+          "cachedResultName": "pricing",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ZvPGep1ep2zLH6ze9zgTuXjy54oYb8SdXQMtq68mnvo/edit#gid=819898795"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -1152,
+        1360
+      ],
+      "id": "179007b8-c270-448a-996c-c25f9e5c49ca",
+      "name": "get_uae_pricing",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "hfZ9DcV8NAxi8pBD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "model": "tts-1-hd",
+        "input": "={{ $json.output }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        -752,
+        976
+      ],
+      "id": "b7b3708c-058c-4b19-b7fd-87256c7a193a",
+      "name": "Generate audio",
+      "credentials": {
+        "openAiApi": {
+          "id": "GDBqlBJ6ZO62iibt",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ec4117fb-ecc4-4fc2-9d45-1d47c4416e7b",
+              "leftValue": "={{ $('Normalize Webhook Data').item.json.messages[0].audio }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -992,
+        1072
+      ],
+      "id": "5b80f253-c264-4123-b93e-5df67caed575",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.from }}",
+        "contextWindowLength": 20
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -1328,
+        1296
+      ],
+      "id": "aba72178-4134-4d6a-a646-2b9d547496cc",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1488,
+        1280
+      ],
+      "id": "90665133-9825-4605-8c96-f6dbdc9d7f00",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "GDBqlBJ6ZO62iibt",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.messageText }}",
+        "options": {
+          "systemMessage": "=## PRICING DATA ACCESS\n\n**You have access to a Google Sheets tool** called `get_uae_pricing` that contains live pricing data.\n\n**How to use it:**\n- When customer asks about pricing, zones, packages, or costs\n- Simply query the tool naturally\n- Examples:\n  • \"Show me packages with 1 visa\"\n  • \"What are the IFZA packages?\"\n  • \"Find the cheapest option for 2 visas\"\n  • \"List all free zones\"\n\n**CRITICAL RULES:**\n- NEVER quote prices from memory\n- ALWAYS use the get_uae_pricing tool for pricing questions\n- If the tool returns data, present it clearly to the customer\n- If tool fails, say: \"Let me check with my team on current pricing\"\n\n---\n\nYou are Ahmed, a senior UAE business setup consultant. Communicate like a confident, warm professional who remembers context.\n\n## Memory Rules\n\n- NEVER repeat introduction if already introduced\n- Reference previous messages: \"Like I mentioned\", \"Building on what we discussed\"\n- Track stage: First contact → Discovery → Qualification → Recommendation\n- Stay consistent throughout conversation\n\n## Style\n\n- Brevity first: 2-3 sentences. Elaborate only if asked\n- Conversational: Use contractions, sound like texting a colleague\n- Empathetic: \"I get that\", \"Makes sense\", \"Totally understand\"\n- Name usage: Use {{ $json.customerName }} in opening only, skip in follow-ups\n- Emojis: Max 1-2 per message: 🇦🇪 💼 ✨ 📋 🏢\n- Max length: 150 words\n\n## Opening (FIRST MESSAGE ONLY)\n\n- Generic: \"Hello! Interested in setting up a business in the UAE?\"\n- Specific: Jump to answer with warmth\n- If name available: \"Hello {{ $json.customerName }}! Happy to help 🇦🇪\"\n\n## Discovery (Ask 1-2 at a time)\n\n1. Full Name & Location\n2. Business Type\n3. Target Market (UAE or international)\n4. Activity Details\n5. Ownership (sole/partners)\n6. Visas needed\n7. Office needs\n8. Budget\n9. Timeline\n10. Residence visa needed?\n11. Documentation ready?\n12. Banking assistance?\n\n## Recommendations\n\nAfter gathering visa needs and activity:\n- Use get_uae_pricing tool to find relevant packages\n- Present pricing clearly: \"The [package] is AED [price] and includes...\"\n- Highlight value: setup time, inclusions, visa count\n\n## Objection Handling\n\n**\"Just researching\"**: \"That's fine! I can send a free proposal with options, costs, and process.\"\n\n**\"Too expensive\"**: Use get_uae_pricing to find cheaper options: \"Let me find more affordable options for you...\"\n\n**\"I'll decide later\"**: \"No worries—we can reserve your company name today at no charge. Holds preferred name and locks pricing for 30 days.\"\n\n## Lead Markers (Will be stripped)\n\n**[BUSINESS_ACTIVITY: text]**\n**[TARGET_MARKET: Mainland/Free Zone/Both]**\n**[BUDGET: Under 15K/15-25K/25-30K/Above 30K]**\n**[VISAS: number]**\n**[TIMELINE: Immediate/1 Month/Exploring]**\n**[LEAD_QUALITY: HOT/WARM/COLD]**\n**[NEXT_ACTION: NURTURE/QUOTE/ESCALATE]**\n\n### Lead Quality\n\n**HOT**: Ready (Immediate/1 Month), budget confirmed, clear activity, docs ready\n**WARM**: Interested, 1-2 month timeline, budget identified, needs more info\n**COLD**: Exploring, no timeline, budget unclear, early research\n\n## Escalation → [ESCALATE_TO_HUMAN]\n\nEnd with this if:\n- Custom/complex structures\n- Budget >AED 50K or <AED 10K\n- Payment plans/financing\n- Legal/compliance questions\n- Industry-specific licensing (healthcare/education/finance)\n- Complex queries beyond standard packages\n\nSample Template: \"This needs our senior consultant. Someone will reach out within 2 hours (9 AM-6 PM GST, Sun-Thu). [ESCALATE_TO_HUMAN]\"\n\n## Critical Rules\n\n1. Answer simply—elaborate if asked\n2. ALWAYS use get_uae_pricing tool for pricing—never quote from memory\n3. Sound human—real conversations\n4. Stay brief unless detail requested\n5. Remember context—don't repeat\n6. Be confident expert\n7. Always include markers (won't show customer)\n8. Ask 1-2 questions max at a time\n9. Provide actionable next steps\n\n## Closing\n\n\"Would you like me to prepare detailed quotation and document checklist? We can have trade license ready in 5-7 working days once documents submitted.\""
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -1344,
+        1072
+      ],
+      "id": "d022e883-c224-4f26-9cae-3e604f2f4e66",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiInput = $input.item.json;\nconsole.log('Parse AI input:', JSON.stringify(aiInput, null, 2));\n\nlet aiResponse = '';\nif (aiInput.output) {\n  aiResponse = aiInput.output;\n} else if (aiInput.text) {\n  aiResponse = aiInput.text;\n} else if (aiInput.message && aiInput.message.content) {\n  aiResponse = aiInput.message.content;\n} else if (aiInput.content) {\n  aiResponse = aiInput.content;\n} else {\n  console.log('WARNING: No AI response found');\n  aiResponse = 'No AI response available';\n}\n\nconst lines = aiResponse.split('\\n');\nlet responseText = '';\nlet leadQuality = 'COLD';\nlet nextAction = 'NURTURE';\nlet needsEscalation = false;\nlet businessActivity = '';\nlet targetMarket = '';\nlet budget = '';\nlet visas = '';\nlet timeline = '';\n\nfor (const line of lines) {\n  if (line.includes('[LEAD_QUALITY:')) {\n    const match = line.match(/\\[LEAD_QUALITY:\\s*(HOT|WARM|COLD)\\]/i);\n    if (match) leadQuality = match[1].toUpperCase();\n  } else if (line.includes('[NEXT_ACTION:')) {\n    const match = line.match(/\\[NEXT_ACTION:\\s*(\\w+)\\]/i);\n    if (match) nextAction = match[1];\n  } else if (line.includes('[ESCALATE_TO_HUMAN]')) {\n    needsEscalation = true;\n  } else if (line.includes('[BUSINESS_ACTIVITY:')) {\n    const match = line.match(/\\[BUSINESS_ACTIVITY:\\s*([^\\]]+)\\]/i);\n    if (match) businessActivity = match[1].trim();\n  } else if (line.includes('[TARGET_MARKET:')) {\n    const match = line.match(/\\[TARGET_MARKET:\\s*(Mainland|Free Zone|Both)\\]/i);\n    if (match) targetMarket = match[1];\n  } else if (line.includes('[BUDGET:')) {\n    const match = line.match(/\\[BUDGET:\\s*([^\\]]+)\\]/i);\n    if (match) budget = match[1].trim();\n  } else if (line.includes('[VISAS:')) {\n    const match = line.match(/\\[VISAS:\\s*(\\d+)\\]/i);\n    if (match) visas = match[1];\n  } else if (line.includes('[TIMELINE:')) {\n    const match = line.match(/\\[TIMELINE:\\s*(Immediate|1 Month|Exploring)\\]/i);\n    if (match) timeline = match[1];\n  } else if (!line.startsWith('[')) {\n    responseText += line + '\\n';\n  }\n}\n\nresponseText = responseText.trim();\n\nconst unifyData = $('Unify Message Paths').item.json;\n\nconst output = {\n  from: unifyData.from || aiInput.from || 'unknown',\n  customerName: unifyData.customerName || aiInput.customerName || 'Customer',\n  messageId: unifyData.messageId || aiInput.messageId || 'unknown',\n  messageText: unifyData.messageText || aiInput.messageText || 'unknown',\n  timestamp: unifyData.timestamp || aiInput.timestamp || $now.toISO(),\n  phoneNumber: (unifyData.from || aiInput.from || '').replace('@s.whatsapp.net', ''),\n  aiResponse: responseText,\n  leadQuality: leadQuality,\n  nextAction: nextAction,\n  needsEscalation: needsEscalation,\n  businessActivity: businessActivity,\n  targetMarket: targetMarket,\n  budget: budget,\n  visas: visas,\n  timeline: timeline,\n  fromCache: false,\n  responseSource: 'ai-agent',\n  cacheKey: null,\n  needsFollowUp: ['HOT', 'WARM'].includes(leadQuality)\n};\n\nconsole.log('Parse AI output:', JSON.stringify(output, null, 2));\n\nreturn { json: output };"
+      },
+      "id": "eb3359e3-3dd7-440e-8119-a28226e304bb",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -752,
+        1184
+      ],
+      "notes": "Extracts AI response, business setup markers, strips internal tags"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.item.json;\n\nconsole.log('Unify input received:', JSON.stringify(item, null, 2));\n\nif (!item || !item.messageText) {\n  console.log('ERROR: No messageText in input');\n  return [{ json: { error: 'No message data', sourcePath: 'none' } }];\n}\n\nconst unifiedItem = {\n  ...item,\n  sourcePath: item.sourcePath || (item.textFrom ? 'text' : 'voice'),\n  messageText: item.messageText.trim(),\n  hasValidMessage: true\n};\n\nconsole.log('Unified output:', JSON.stringify(unifiedItem, null, 2));\n\nreturn [{ json: unifiedItem }];"
+      },
+      "id": "d7df6815-176a-48bc-8961-4e84c4687fc1",
+      "name": "Unify Message Paths",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1568,
+        1072
+      ],
+      "notes": "Merges text and voice paths into unified format"
+    }
+  ],
+  "connections": {
+    "WhatsApp Webhook": {
+      "main": [
+        [
+          {
+            "node": "Is Verification Request?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Verification Request?": {
+      "main": [
+        [
+          {
+            "node": "Return Verification Challenge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Normalize Webhook Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Webhook Data": {
+      "main": [
+        [
+          {
+            "node": "Message Router2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message Router2": {
+      "main": [
+        [
+          {
+            "node": "Extract Text2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Download media2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Text2": {
+      "main": [
+        [
+          {
+            "node": "Unify Message Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download media2": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Voice Data": {
+      "main": [
+        [
+          {
+            "node": "Unify Message Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Lead Data": {
+      "main": [
+        [
+          {
+            "node": "Log Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Lead": {
+      "main": [
+        [
+          {
+            "node": "Is HOT Lead?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is HOT Lead?": {
+      "main": [
+        [
+          {
+            "node": "Notify Team (HOT)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Follow-Up Schedule": {
+      "main": [
+        [
+          {
+            "node": "Read Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Leads": {
+      "main": [
+        [
+          {
+            "node": "Filter Follow-Up Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Follow-Up Leads": {
+      "main": [
+        [
+          {
+            "node": "Generate Follow-Up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Follow-Up": {
+      "main": [
+        [
+          {
+            "node": "Send Follow-Up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Follow-Up": {
+      "main": [
+        [
+          {
+            "node": "Update Lead Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Download Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Human Delay": {
+      "main": [
+        [
+          {
+            "node": "Send Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Audio": {
+      "main": [
+        [
+          {
+            "node": "Transcribe a recording",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe a recording": {
+      "main": [
+        [
+          {
+            "node": "Extract Voice Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Send Voice Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_uae_pricing": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate audio": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Generate audio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Human Delay",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Lead Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unify Message Paths": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "production-whatsapp-chatbot-webhook"
+  },
+  "tags": []
+}
+
+
